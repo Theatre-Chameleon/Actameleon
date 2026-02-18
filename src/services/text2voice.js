@@ -145,12 +145,12 @@ const releaseWakeLock = () => {
     }
 };
 
-const toggleReading = (script, config) => {
+const toggleReading = (script, config, fromScene = null) => {
     if(!available) return;
     if(speaking.value) {
         cancel();
     } else {
-        read(script, config);
+        read(script, config, fromScene);
     }
 }
 
@@ -217,14 +217,19 @@ const skipToNext = () => {
     speakNext();
 }
 
-const read = (script, config = {}) => {
+const read = (script, config = {}, fromScene = null) => {
     if(available) {
         const skipActors = config.skipMyLines ? config.selectedActors || [] : [];
         const skipSpeed = config.skipSpeed ?? 1;
-        linesToSpeak = script.acts
+        let scenes = script.acts
         .filter(act => act.active)
         .flatMap(act => act.scenes)
-        .filter(scene => scene.active)
+        .filter(scene => scene.active);
+        if (fromScene) {
+            const idx = scenes.findIndex(s => s.sceneNumber === fromScene);
+            if (idx >= 0) scenes = scenes.slice(idx);
+        }
+        linesToSpeak = scenes
         .flatMap(scene => scene.lines)
         .filter(line => line.state === 'show' || line.state === 'clue' || line.state === 'highlight')
         .map(line => ({

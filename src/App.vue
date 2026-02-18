@@ -128,6 +128,11 @@ const scrollToTop = () => {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
+const playFrom = (sceneNumber) => {
+  t2v.cancel();
+  t2v.toggleReading(script, config, sceneNumber);
+};
+
 // Get current script title
 const currentScriptTitle = computed(() => {
   const s = scripts.find(s => s.name === selectedScript.value);
@@ -209,7 +214,7 @@ const selectScript = (scriptName) => {
     />
 
     <!-- Script Content -->
-    <ScriptDisplay :script="script" :hide-to-check="config.hideText" v-if="script" v-cloak/>
+    <ScriptDisplay :script="script" :hide-to-check="config.hideText" v-if="script" v-cloak @play-from="playFrom"/>
 
     <!-- Floating Action Buttons -->
     <div class="fab-container">
