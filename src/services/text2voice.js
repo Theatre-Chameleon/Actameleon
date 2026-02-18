@@ -10,6 +10,7 @@ let autoScrollEnabled = ref(true);
 let linesToSpeak = [];
 let language = 'ru';
 let pauseTimeout = null;
+let currentLine = null;
 
 // Estimated speaking time: ~80ms per character for Russian
 const MS_PER_CHAR = 80;
@@ -167,20 +168,24 @@ const selectAndScroll = (line) => {
 const speakNext = () => {
     const entry = linesToSpeak.shift();
     if(typeof entry === 'undefined' || !speaking.value) {
+        currentLine = null;
         releaseWakeLock();
         speaking.value = false;
         cleanupAutoScroll();
     } else if (entry._skip) {
         // My line: ding, highlight, pause for estimated speaking time, then continue
+        currentLine = entry.line;
         playDing();
         selectAndScroll(entry.line);
         const pauseDuration = (entry.line.text || '').length * MS_PER_CHAR * entry._speed;
         pauseTimeout = setTimeout(() => {
             entry.line.selected = false;
+            currentLine = null;
             speakNext();
         }, pauseDuration);
     } else {
         const line = entry.line;
+        currentLine = line;
         const utterance = new SpeechSynthesisUtterance(line.text);
         utterance.lang = language;
         utterance.onstart = () => {
@@ -188,14 +193,28 @@ const speakNext = () => {
         }
         utterance.onend = () => {
             line.selected = false;
+            currentLine = null;
             speakNext();
         }
         utterance.onerror = () => {
             line.selected = false;
+            currentLine = null;
         }
         speechSynthesis.speak(utterance);
         if(!speaking.value) speaking.value = true;
     }
+}
+
+const skipToNext = () => {
+    if(!speaking.value) return;
+    // Stop current TTS or pause timer
+    speechSynthesis.cancel();
+    clearTimeout(pauseTimeout);
+    if(currentLine) {
+        currentLine.selected = false;
+        currentLine = null;
+    }
+    speakNext();
 }
 
 const read = (script, config = {}) => {
@@ -241,6 +260,7 @@ export default {
     speaking,
     autoScrollEnabled,
     toggleReading,
+    skipToNext,
     read,
     cancel
 }

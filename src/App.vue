@@ -224,6 +224,13 @@ const selectScript = (scriptName) => {
         </svg>
         <span class="fab-label">{{ t2v.speaking.value ? "Stop" : "Read" }}</span>
       </button>
+      <button @click="t2v.skipToNext()" class="fab fab-next" v-if="t2v.speaking.value">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="5 3 15 12 5 21 5 3"></polygon>
+          <rect x="16" y="3" width="3" height="18"></rect>
+        </svg>
+        <span class="fab-label">Next</span>
+      </button>
       <button @click="scrollToTop" class="fab fab-top">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="18 15 12 9 6 15"></polyline>
