@@ -3,6 +3,7 @@
     <strong class="mr-2" v-if="line.actor && line.state != 'hide'">{{ line.actor }}:</strong>
     <span v-if="line.setting && line.state != 'hide' && !hideText" class="italic mr-2">{{ line.setting }}</span>
     <span v-if="line.state!='hide' && !hideText">{{ line.text }}</span>
+    <button v-if="line.state!='hide' && !hideText && hideToCheck && (line.state == 'show' || line.state == 'highlight')" @click="toggleHideText" class="hide-text-button">Hide</button>
     <button v-if="line.state!='hide' && line.state!='highlight' && hideText" @click="toggleHideText" class="show-text-button">Show</button>
     <button v-if="line.state=='highlight' && hideText" @click="toggleHideText" class="show-text-button">Show</button>
     <span v-if="line.state=='hide'">*</span>
@@ -45,5 +46,8 @@ export default {
 </script>
 
 <style scoped>
-/* Add your styles here */
+.hide-text-button {
+  @apply ml-2 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300;
+  @apply transition-colors;
+}
 </style>

@@ -127,6 +127,14 @@ const hasSceneSelection = computed(() => props.config.selectedScenes.length > 0)
 const isSceneSelected = (sceneNumber) => {
   return props.config.selectedScenes.includes(sceneNumber);
 };
+
+// Skip speed: maps slider position to ms-per-char multiplier
+const speedValues = [0.5, 1, 2]; // fast, medium, slow
+const speedIndex = computed(() => {
+  const val = props.config.skipSpeed ?? 1;
+  const idx = speedValues.indexOf(val);
+  return idx >= 0 ? idx : 1;
+});
 </script>
 
 <template>
@@ -211,13 +219,44 @@ const isSceneSelected = (sceneNumber) => {
             Highlight only
             <span class="option-hint">Show all lines, highlight selected actors</span>
           </span>
-          <button 
+          <button
             @click="config.highlightOnly = !config.highlightOnly"
             :class="['toggle-btn', { 'toggle-btn-active': config.highlightOnly }]"
           >
             <span class="toggle-knob"></span>
           </button>
         </label>
+
+        <label class="option-row">
+          <span class="option-label">
+            Skip my lines in TTS
+            <span class="option-hint">Only speak other actors' lines during playback</span>
+          </span>
+          <button
+            @click="config.skipMyLines = !config.skipMyLines"
+            :class="['toggle-btn', { 'toggle-btn-active': config.skipMyLines }]"
+          >
+            <span class="toggle-knob"></span>
+          </button>
+        </label>
+
+        <div v-if="config.skipMyLines" class="speed-slider">
+          <span class="option-label">
+            Pause speed
+            <span class="option-hint">How much time to speak your lines</span>
+          </span>
+          <div class="slider-row">
+            <span class="slider-label">Fast</span>
+            <input
+              type="range"
+              min="0" max="2" step="1"
+              :value="speedIndex"
+              @input="config.skipSpeed = speedValues[$event.target.value]"
+              class="slider-input"
+            />
+            <span class="slider-label">Slow</span>
+          </div>
+        </div>
       </div>
       
       <!-- Bottom padding for safe area -->
@@ -300,6 +339,24 @@ const isSceneSelected = (sceneNumber) => {
 
 .toggle-btn-active .toggle-knob {
   @apply translate-x-5;
+}
+
+.speed-slider {
+  @apply px-4 py-3;
+}
+
+.slider-row {
+  @apply flex items-center gap-3 mt-2;
+}
+
+.slider-label {
+  @apply text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap;
+}
+
+.slider-input {
+  @apply w-full h-2 rounded-full appearance-none cursor-pointer;
+  @apply bg-gray-300 dark:bg-gray-600;
+  accent-color: theme('colors.blue.500');
 }
 
 .safe-area-spacer {

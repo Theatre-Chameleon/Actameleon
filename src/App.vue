@@ -25,7 +25,9 @@ const config = reactive(safeJSONparse(localStorage.getItem(`config.${selectedScr
                     selectedScenes: [],
                     showLinesPrior: false,
                     hideText: false,
-                    highlightOnly: false
+                    highlightOnly: false,
+                    skipMyLines: false,
+                    skipSpeed: 1
                   });
 
 // Modal states
@@ -126,6 +128,11 @@ const scrollToTop = () => {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
+const playFrom = (sceneNumber) => {
+  t2v.cancel();
+  t2v.toggleReading(script, config, sceneNumber);
+};
+
 // Get current script title
 const currentScriptTitle = computed(() => {
   const s = scripts.find(s => s.name === selectedScript.value);
@@ -207,12 +214,12 @@ const selectScript = (scriptName) => {
     />
 
     <!-- Script Content -->
-    <ScriptDisplay :script="script" :hide-to-check="config.hideText" v-if="script" v-cloak/>
+    <ScriptDisplay :script="script" :hide-to-check="config.hideText" v-if="script" v-cloak @play-from="playFrom"/>
 
     <!-- Floating Action Buttons -->
     <div class="fab-container">
       <SceneNav :script="script" v-if="script.acts" />
-      <button @click="t2v.toggleReading(script)" class="fab fab-read" v-if="t2v.available">
+      <button @click="t2v.toggleReading(script, config)" class="fab fab-read" v-if="t2v.available">
         <svg v-if="!t2v.speaking.value" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
           <polygon points="5 3 19 12 5 21 5 3"></polygon>
         </svg>
@@ -221,6 +228,13 @@ const selectScript = (scriptName) => {
           <rect x="14" y="4" width="4" height="16"></rect>
         </svg>
         <span class="fab-label">{{ t2v.speaking.value ? "Stop" : "Read" }}</span>
+      </button>
+      <button @click="t2v.skipToNext()" class="fab fab-next" v-if="t2v.speaking.value">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="5 3 15 12 5 21 5 3"></polygon>
+          <rect x="16" y="3" width="3" height="18"></rect>
+        </svg>
+        <span class="fab-label">Next</span>
       </button>
       <button @click="scrollToTop" class="fab fab-top">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

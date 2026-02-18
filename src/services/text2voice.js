@@ -9,6 +9,33 @@ let autoScrollEnabled = ref(true);
 
 let linesToSpeak = [];
 let language = 'ru';
+let pauseTimeout = null;
+let currentLine = null;
+
+// Estimated speaking time: ~80ms per character for Russian
+const MS_PER_CHAR = 80;
+
+// Create a ding sound using Web Audio API
+const playDing = () => {
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // A5 note
+        gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+
+        oscillator.start(audioCtx.currentTime);
+        oscillator.stop(audioCtx.currentTime + 0.5);
+    } catch (e) {
+        // Silently fail if audio context is not available
+    }
+};
 
 // Auto-scroll state
 let currentLineElement = null;
@@ -27,17 +54,17 @@ const findCurrentLineElement = () => {
 // Scroll to element with padding from top
 const scrollToLine = (element) => {
     if (!element || !autoScrollEnabled.value) return;
-    
+
     isScrollingProgrammatically = true;
-    
+
     const elementRect = element.getBoundingClientRect();
     const targetScrollY = window.scrollY + elementRect.top - SCROLL_PADDING_TOP;
-    
+
     window.scrollTo({
         top: targetScrollY,
         behavior: 'smooth'
     });
-    
+
     // Reset programmatic scroll flag after animation completes
     clearTimeout(scrollTimeout);
     scrollTimeout = setTimeout(() => {
@@ -57,11 +84,11 @@ const setupLineObserver = (element) => {
     if (lineObserver) {
         lineObserver.disconnect();
     }
-    
+
     if (!element) return;
-    
+
     currentLineElement = element;
-    
+
     lineObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             // If line becomes visible and auto-scroll was disabled, re-enable it
@@ -73,7 +100,7 @@ const setupLineObserver = (element) => {
         threshold: 0.5, // Consider visible when 50% in view
         rootMargin: '0px'
     });
-    
+
     lineObserver.observe(element);
 };
 
@@ -110,7 +137,7 @@ const requestWakeLock = async () => {
         console.error(`${err.name}, ${err.message}`);
     }
 };
-  
+
 const releaseWakeLock = () => {
     if (wakeLock !== null) {
         wakeLock.release();
@@ -118,62 +145,104 @@ const releaseWakeLock = () => {
     }
 };
 
-const toggleReading = (script) => {
+const toggleReading = (script, config, fromScene = null) => {
     if(!available) return;
     if(speaking.value) {
         cancel();
     } else {
-        read(script);
+        read(script, config, fromScene);
     }
 }
 
+const selectAndScroll = (line) => {
+    line.selected = true;
+    requestAnimationFrame(() => {
+        const lineElement = findCurrentLineElement();
+        if (lineElement) {
+            setupLineObserver(lineElement);
+            scrollToLine(lineElement);
+        }
+    });
+};
 
 const speakNext = () => {
-    const line = linesToSpeak.shift();
-    if(typeof line === 'undefined' || !speaking.value) {
+    const entry = linesToSpeak.shift();
+    if(typeof entry === 'undefined' || !speaking.value) {
+        currentLine = null;
         releaseWakeLock();
         speaking.value = false;
         cleanupAutoScroll();
+    } else if (entry._skip) {
+        // My line: ding, highlight, pause for estimated speaking time, then continue
+        currentLine = entry.line;
+        playDing();
+        selectAndScroll(entry.line);
+        const pauseDuration = (entry.line.text || '').length * MS_PER_CHAR * entry._speed;
+        pauseTimeout = setTimeout(() => {
+            entry.line.selected = false;
+            currentLine = null;
+            speakNext();
+        }, pauseDuration);
     } else {
+        const line = entry.line;
+        currentLine = line;
         const utterance = new SpeechSynthesisUtterance(line.text);
         utterance.lang = language;
         utterance.onstart = () => {
-            line.selected = true;
-            // Use requestAnimationFrame to ensure DOM is updated before finding element
-            requestAnimationFrame(() => {
-                const lineElement = findCurrentLineElement();
-                if (lineElement) {
-                    setupLineObserver(lineElement);
-                    scrollToLine(lineElement);
-                }
-            });
+            selectAndScroll(line);
         }
         utterance.onend = () => {
             line.selected = false;
+            currentLine = null;
             speakNext();
         }
         utterance.onerror = () => {
             line.selected = false;
+            currentLine = null;
         }
         speechSynthesis.speak(utterance);
         if(!speaking.value) speaking.value = true;
     }
 }
 
-const read = (script) => {
+const skipToNext = () => {
+    if(!speaking.value) return;
+    // Stop current TTS or pause timer
+    speechSynthesis.cancel();
+    clearTimeout(pauseTimeout);
+    if(currentLine) {
+        currentLine.selected = false;
+        currentLine = null;
+    }
+    speakNext();
+}
+
+const read = (script, config = {}, fromScene = null) => {
     if(available) {
-        linesToSpeak = script.acts
+        const skipActors = config.skipMyLines ? config.selectedActors || [] : [];
+        const skipSpeed = config.skipSpeed ?? 1;
+        let scenes = script.acts
         .filter(act => act.active)
         .flatMap(act => act.scenes)
-        .filter(scene => scene.active)
+        .filter(scene => scene.active);
+        if (fromScene) {
+            const idx = scenes.findIndex(s => s.sceneNumber === fromScene);
+            if (idx >= 0) scenes = scenes.slice(idx);
+        }
+        linesToSpeak = scenes
         .flatMap(scene => scene.lines)
-        .filter(line => line.state === 'show' || line.state === 'clue');
+        .filter(line => line.state === 'show' || line.state === 'clue' || line.state === 'highlight')
+        .map(line => ({
+            line,
+            _skip: skipActors.length > 0 && skipActors.includes(line.actor),
+            _speed: skipSpeed
+        }));
         language = script.language ? script.language : 'ru';
-        
+
         // Initialize auto-scroll
         autoScrollEnabled.value = true;
         startScrollListener();
-        
+
         speaking.value = true;
         requestWakeLock();
         speakNext();
@@ -183,6 +252,11 @@ const read = (script) => {
 const cancel = () => {
     if(available) {
         speechSynthesis.cancel();
+        clearTimeout(pauseTimeout);
+        if(currentLine) {
+            currentLine.selected = false;
+            currentLine = null;
+        }
         speaking.value = false;
         releaseWakeLock();
         cleanupAutoScroll();
@@ -195,6 +269,7 @@ export default {
     speaking,
     autoScrollEnabled,
     toggleReading,
+    skipToNext,
     read,
     cancel
 }
