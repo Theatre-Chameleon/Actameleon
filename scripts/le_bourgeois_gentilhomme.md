@@ -1,6 +1,6 @@
 # **Жан-Батист Мольер** **Мещанин во дворянстве**
 
-Тренинг текста: [https://actameleon.orienteer.org/](https://actameleon.orienteer.org/)
+Тренинг текста: [https://actameleon.theatrechameleon.org/](https://actameleon.theatrechameleon.org/)
 
 [Действующие лица:](#действующие-лица:)
 
