@@ -88,7 +88,12 @@ const loadScript = async (scriptRef) => {
       console.error('Failed to load script data:', error);
     }
   }
-  Object.assign(script, scriptRef.script);
+  // Language lives in the registry, not in the parsed JSON: the sync job
+  // regenerates the JSON from the Google Doc and would drop it.
+  Object.assign(script, scriptRef.script, {
+    language: scriptRef.language || 'ru',
+    ttsFallback: scriptRef.ttsFallback || []
+  });
   markActive(script);
 };
 

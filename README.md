@@ -16,7 +16,7 @@ Theatrical script reader for rehearsal practice.
 - Skip to next line and play from any scene during TTS playback
 - Re-hide revealed lines in self-test mode
 - Dark/light mode (follows system preference)
-- Multilingual script support
+- Multilingual script support - per-script text-to-speech language with fallback voices
 - Full-screen script selector with metadata
 - Bottom sheet filters with searchable actor list
 - Highlight mode - show all lines, highlight your character

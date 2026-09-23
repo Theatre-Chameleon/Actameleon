@@ -9,8 +9,51 @@ let autoScrollEnabled = ref(true);
 
 let linesToSpeak = [];
 let language = 'ru';
+let fallbackLanguages = [];
+let resolvedVoice = null;
+let voiceResolved = false;
 let pauseTimeout = null;
 let currentLine = null;
+
+/**
+ * Pick the best installed voice for a language, walking the fallback chain.
+ *
+ * Voice availability differs per device: there is no Belarusian voice on
+ * macOS, for example. Without a fallback the browser would silently drop
+ * back to its own default, which is often the UI language and reads
+ * Cyrillic as nonsense. Trying an exact tag first, then the bare language
+ * subtag, then each declared fallback keeps the closest available voice.
+ *
+ * Returns null when nothing matches, in which case the caller should just
+ * set utterance.lang and let the browser decide.
+ */
+const pickVoice = (lang, fallbacks = []) => {
+    const voices = speechSynthesis.getVoices();
+    // getVoices() is empty until the list loads; signal "try again later".
+    if (!voices.length) return undefined;
+
+    for (const candidate of [lang, ...fallbacks]) {
+        if (!candidate) continue;
+        const wanted = candidate.toLowerCase();
+        const exact = voices.find(v => v.lang && v.lang.toLowerCase() === wanted);
+        if (exact) return exact;
+
+        const subtag = wanted.split('-')[0];
+        const loose = voices.find(v => v.lang && v.lang.toLowerCase().split('-')[0] === subtag);
+        if (loose) return loose;
+    }
+    return null;
+};
+
+/** Resolve once per playback, lazily, since the voice list loads async. */
+const currentVoice = () => {
+    if (voiceResolved) return resolvedVoice;
+    const voice = pickVoice(language, fallbackLanguages);
+    if (voice === undefined) return null; // list not ready yet, retry next line
+    resolvedVoice = voice;
+    voiceResolved = true;
+    return resolvedVoice;
+};
 
 // Estimated speaking time: ~80ms per character for Russian
 const MS_PER_CHAR = 80;
@@ -188,6 +231,17 @@ const speakNext = () => {
         currentLine = line;
         const utterance = new SpeechSynthesisUtterance(line.text);
         utterance.lang = language;
+        const voice = currentVoice();
+        if (voice) {
+            // Assigning a voice the engine rejects throws, which would abort
+            // playback mid-scene. Falling back to lang alone is harmless.
+            try {
+                utterance.voice = voice;
+                utterance.lang = voice.lang;
+            } catch {
+                resolvedVoice = null;
+            }
+        }
         utterance.onstart = () => {
             selectAndScroll(line);
         }
@@ -238,6 +292,9 @@ const read = (script, config = {}, fromScene = null) => {
             _speed: skipSpeed
         }));
         language = script.language ? script.language : 'ru';
+        fallbackLanguages = Array.isArray(script.ttsFallback) ? script.ttsFallback : [];
+        resolvedVoice = null;
+        voiceResolved = false;
 
         // Initialize auto-scroll
         autoScrollEnabled.value = true;

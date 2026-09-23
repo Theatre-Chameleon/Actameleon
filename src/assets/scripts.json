@@ -47,6 +47,8 @@
         "title": "Трышчан і Іжота",
         "url": "/scripts/TristanAndIzota.json",
         "md": "/scripts/TristanAndIzota.md",
-        "sourceUrl": "https://docs.google.com/document/d/1XMm8hhld3k8XnXAuYPbh7I1jxTc20zVr/edit"
+        "sourceUrl": "https://docs.google.com/document/d/1XMm8hhld3k8XnXAuYPbh7I1jxTc20zVr/edit",
+        "language": "be-BY",
+        "ttsFallback": ["ru-RU"]
     }
 ]

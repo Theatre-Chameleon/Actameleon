@@ -99,10 +99,35 @@ exist. Each entry:
 | `url` | yes | Path to the parsed JSON, fetched at runtime |
 | `md` | yes | Path to the source markdown |
 | `sourceUrl` | no | Link to the upstream Google Doc |
+| `language` | no | BCP 47 tag for text-to-speech (default `ru`) |
+| `ttsFallback` | no | Ordered BCP 47 tags to try when no voice matches `language` |
 
 Paths are relative to `public/`. `sourceUrl` is what enables both the sync
 job and the source link in the script selector, so an entry without one is
 simply left alone by automation.
+
+### Text-to-Speech Language
+
+`language` and `ttsFallback` live in the registry rather than in the script
+JSON, because the sync job regenerates the JSON from the Google Doc and
+would drop them. `App.vue` merges them onto the reactive script object when
+it loads, and `text2voice.js` reads them from there.
+
+Installed voices differ per device, so `text2voice.js` resolves a concrete
+voice instead of only setting `utterance.lang`. It tries, in order: an exact
+match on `language`, then a match on the bare subtag (`be-BY` matches a
+`be` voice), then the same two steps for each `ttsFallback` entry. If
+nothing matches it sets `utterance.lang` and lets the browser decide.
+
+This matters because a missing voice is not a graceful failure: browsers
+fall back to their own default, which is usually the UI language, and
+Cyrillic read by an English voice is unusable. Declaring a realistic
+fallback keeps the closest available voice. Resolution happens lazily on
+the first line of playback, since `speechSynthesis.getVoices()` is commonly
+empty until the list loads asynchronously.
+
+Scripts without a `language` fall back to `ru`, so only add it where the
+script is not Russian.
 
 ### Script Sync
 
