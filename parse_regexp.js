@@ -1,8 +1,8 @@
 import fs from 'fs';
-import path from 'path';
+import { pathToFileURL } from 'url';
 
-const mdFilePath = 'src/assets/fools.md';
-const jsonFilePath = 'src/assets/fools.json';
+// Set PARSE_VERBOSE=1 to log every line the parser could not classify.
+const verbose = !!process.env.PARSE_VERBOSE;
 
 const regex = {
   MARKDOWN_UNSCAPE : /\\([\\`*_{}[\]()#+\-.!])/g,
@@ -12,7 +12,7 @@ const regex = {
   SETTING : /#*\s*\*(.*)\*/
 }
 
-function parseMarkdownToJSON(mdContent) {
+export function parseMarkdownToJSON(mdContent) {
   const lines = mdContent.split('\n');
   const jsonResult = {
     playTitle: '',
@@ -87,7 +87,7 @@ function parseMarkdownToJSON(mdContent) {
                 currentScene.lines.push({ actor : lastActor , text: line });
             }
         }
-    } else {
+    } else if (verbose) {
         console.log(`Ignored line: ${line}`);
     }
 
@@ -103,24 +103,39 @@ function parseMarkdownToJSON(mdContent) {
   return jsonResult;
 }
 
-// Get command-line arguments
-const args = process.argv.slice(2);
-const inputFilePath = args[0] || mdFilePath;
-const outputFilePath = args[1] || jsonFilePath;
+/**
+ * Read a markdown file, parse it and write the resulting JSON.
+ * Throws on any I/O error so callers can decide how to react.
+ */
+export function parseFile(inputFilePath, outputFilePath) {
+  const data = fs.readFileSync(inputFilePath, 'utf8');
+  const jsonData = parseMarkdownToJSON(data);
+  fs.writeFileSync(outputFilePath, JSON.stringify(jsonData, null, 2));
+  return jsonData;
+}
 
-console.log(`Reading from ${inputFilePath} and writing to ${outputFilePath}`);
+// Only run the CLI when this file is executed directly, so the parser can be
+// imported by other scripts (e.g. scripts/sync-scripts.mjs) without side effects.
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 
-fs.readFile(inputFilePath, 'utf8', (err, data) => {
-  if (err) {
-    console.error(`Error reading file from disk: ${err}`);
-  } else {
-    const jsonData = parseMarkdownToJSON(data);
-    fs.writeFile(outputFilePath, JSON.stringify(jsonData, null, 2), (err) => {
-      if (err) {
-        console.error(`Error writing JSON to file: ${err}`);
-      } else {
-        console.log(`JSON data has been written to ${outputFilePath}`);
-      }
-    });
+if (isMain) {
+  const args = process.argv.slice(2);
+  const inputFilePath = args[0];
+  const outputFilePath = args[1];
+
+  if (!inputFilePath || !outputFilePath) {
+    console.error('Usage: node parse_regexp.js <input.md> <output.json>');
+    console.error('Set PARSE_VERBOSE=1 to log unrecognised lines.');
+    process.exit(1);
   }
-});
+
+  console.log(`Reading from ${inputFilePath} and writing to ${outputFilePath}`);
+
+  try {
+    parseFile(inputFilePath, outputFilePath);
+    console.log(`JSON data has been written to ${outputFilePath}`);
+  } catch (err) {
+    console.error(`Error parsing ${inputFilePath}: ${err.message}`);
+    process.exit(1);
+  }
+}
