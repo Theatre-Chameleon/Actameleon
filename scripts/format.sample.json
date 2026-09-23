@@ -14,19 +14,25 @@
             "lines": [
               {
                 "actor": "Narrator",
-                "text": "Once upon a time, in a tranquil village...",
-                "stageDirections": "Narrator walks center stage."
+                "setting": "Narrator walks center stage.",
+                "text": "Once upon a time, in a tranquil village..."
               },
               {
                 "actor": "Alice",
-                "text": "Look, the sun is rising!",
-                "stageDirections": "Points towards the sky.",
-                "cues": ["Bob enters from left."]
+                "setting": null,
+                "text": "Look, the sun is rising!"
+              },
+              {
+                "setting": "Bob enters from the left."
               },
               {
                 "actor": "Bob",
-                "text": "It’s a beautiful morning indeed.",
-                "stageDirections": "Smiles warmly."
+                "setting": null,
+                "text": "It’s a beautiful morning indeed."
+              },
+              {
+                "actor": "Bob",
+                "text": "A continuation line carries the previous speaker and omits the setting key entirely."
               }
             ]
           }
@@ -37,19 +43,19 @@
         "actTitle": "The Transformation",
         "scenes": [
           {
-            "sceneNumber": 1,
+            "sceneNumber": 2,
             "sceneTitle": "The Turning Point",
-            "setting": "A bustling city.",
+            "setting": null,
             "lines": [
               {
                 "actor": "Alice",
-                "text": "Everything is so different here.",
-                "stageDirections": "Looks around in awe."
+                "setting": "Looks around in awe.",
+                "text": "Everything is so different here."
               },
               {
                 "actor": "Bob",
-                "text": "Change is inevitable, my friend.",
-                "stageDirections": "Places a hand on Alice’s shoulder."
+                "setting": null,
+                "text": "Change is inevitable, my friend."
               }
             ]
           }

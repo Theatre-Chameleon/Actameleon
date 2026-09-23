@@ -1,19 +1,20 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "Play Script",
+    "description": "Shape of the generated files in public/scripts/*.json. These are produced from the source markdown by parse_regexp.js and must not be hand-edited.",
     "type": "object",
     "properties": {
       "playTitle": {
         "type": "string",
-        "description": "The title of the play"
+        "description": "The title of the play. Emitted for forward compatibility but never populated by the parser; always an empty string."
       },
       "author": {
         "type": "string",
-        "description": "The author of the play"
+        "description": "The author of the play. Never populated by the parser; always an empty string."
       },
       "description": {
         "type": "string",
-        "description": "A brief description of the play"
+        "description": "A brief description of the play. Never populated by the parser; always an empty string."
       },
       "acts": {
         "type": "array",
@@ -23,7 +24,7 @@
           "properties": {
             "actNumber": {
               "type": "integer",
-              "description": "The number of the act"
+              "description": "1-based index of the act within the play"
             },
             "actTitle": {
               "type": "string",
@@ -37,35 +38,54 @@
                 "properties": {
                   "sceneNumber": {
                     "type": "integer",
-                    "description": "The number of the scene"
+                    "description": "1-based index of the scene, counted across the whole play rather than restarting each act"
                   },
                   "sceneTitle": {
                     "type": "string",
                     "description": "The title of the scene"
                   },
                   "setting": {
-                    "type": "string",
-                    "description": "The setting of the scene"
+                    "type": ["string", "null"],
+                    "description": "Scene-level stage directions, gathered from the text before the first line of dialogue. Null when the scene opens directly with dialogue."
                   },
                   "lines": {
                     "type": "array",
-                    "description": "List of lines in the scene",
+                    "description": "Ordered lines of the scene",
                     "items": {
                       "type": "object",
-                      "properties": {
-                        "actor": {
-                          "type": "string",
-                          "description": "The actor delivering the line"
+                      "description": "Either a spoken line or a standalone stage direction",
+                      "oneOf": [
+                        {
+                          "title": "Spoken line",
+                          "required": ["actor", "text"],
+                          "properties": {
+                            "actor": {
+                              "type": "string",
+                              "description": "Name of the character delivering the line"
+                            },
+                            "text": {
+                              "type": "string",
+                              "description": "The spoken dialogue"
+                            },
+                            "setting": {
+                              "type": ["string", "null"],
+                              "description": "Stage direction attached to this line. Absent on continuation lines, null when the line carries no direction."
+                            }
+                          },
+                          "additionalProperties": false
                         },
-                        "text": {
-                          "type": "string",
-                          "description": "The spoken dialogue"
-                        },
-                        "stageDirections": {
-                          "type": ["string", "null"],
-                          "description": "Optional stage directions for an actor"
+                        {
+                          "title": "Standalone stage direction",
+                          "required": ["setting"],
+                          "properties": {
+                            "setting": {
+                              "type": "string",
+                              "description": "A stage direction occupying a line of its own, not attributed to any character"
+                            }
+                          },
+                          "additionalProperties": false
                         }
-                      }
+                      ]
                     }
                   }
                 },
