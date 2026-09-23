@@ -18,15 +18,30 @@ npm run deploy       # Deploy to GitHub Pages
 npm run sync                     # Download + reparse every script with a sourceUrl
 npm run sync:check               # Report drift without writing (exit 2 if any)
 npm run sync -- --only <name>    # Restrict to one registry entry
+npm run sync -- --force          # Bypass the 20% line-count shrink guard
 npm run parse                    # Reparse local markdown only, no network
 
 # Parse a single markdown file directly
 npm run parse-fools | parse-festival | parse-memorialpray | parse-twisters | parse-lbg | parse-dreams | parse-comedy | parse-tristan
+
+PARSE_VERBOSE=1 npm run parse    # Log every line the parser could not classify
 ```
 
 ### Testing & Linting
 
 **No testing framework or linter configured.** When adding tests, consider Vitest. Follow existing code patterns for consistency.
+
+The one automated check that does exist is the reparse invariant:
+
+```bash
+npm run parse && git diff --exit-code public/scripts
+```
+
+On a clean tree this must produce no diff, because every committed JSON is
+reproducible from its committed markdown. Run it after touching
+`parse_regexp.js`; a diff means either the parser changed behaviour or a
+JSON was hand-edited. It is the cheapest regression check in the repo, so
+prefer it over eyeballing changes.
 
 ## Code Style Guidelines
 
@@ -137,6 +152,11 @@ is needed.
 
 1. **No tests exist** - Be careful with refactoring; manually verify changes
 2. **No linter** - Follow existing code patterns for consistency
-3. **Script data**: JSON files in `public/scripts/` generated from markdown via `parse_regexp.js`
-4. **Multilingual**: Scripts support multiple languages via `script.language` property (default: 'ru')
+3. **Script data is generated - never hand-edit it**: the JSON files in
+   `public/scripts/` are produced from the markdown by `parse_regexp.js`.
+   Edit the markdown (or the Google Doc, if the script has a `sourceUrl`)
+   and reparse. Editing a JSON directly makes it unreproducible and it will
+   be silently overwritten by the next parse or sync.
+4. **Multilingual**: the language used for text-to-speech comes from the
+   registry, not from the script JSON. See "Text-to-Speech Language" below.
 5. **No play content in docs** - Don't include play-specific information (titles, quotes, character names) in documentation; scripts are runtime data
