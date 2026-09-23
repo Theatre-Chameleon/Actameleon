@@ -2,42 +2,51 @@
     {
         "name": "fools",
         "title": "Дураки",
-        "url": "/scripts/fools.json"
+        "url": "/scripts/fools.json",
+        "md": "/scripts/fools.md"
     },
     {
         "name": "festival",
         "title": "Фестиваль",
-        "url": "/scripts/festival.json"
+        "url": "/scripts/festival.json",
+        "md": "/scripts/festival.md"
     },
     {
         "name": "memorialpray",
         "title": "Поминальная Молитва",
-        "url": "/scripts/memorialpray.json"
+        "url": "/scripts/memorialpray.json",
+        "md": "/scripts/memorialpray.md"
     },
     {
         "name": "twisters",
         "title": "Скороговорки",
-        "url": "/scripts/twisters.json"
+        "url": "/scripts/twisters.json",
+        "md": "/scripts/twisters.md"
     },
     {
         "name": "le_bourgeois_gentilhomme",
         "title": "Мещанин во дворянстве",
-        "url": "/scripts/le_bourgeois_gentilhomme.json"
+        "url": "/scripts/le_bourgeois_gentilhomme.json",
+        "md": "/scripts/le_bourgeois_gentilhomme.md"
     },
     {
         "name": "dreams_about_bruriah",
         "title": "Сны о Брурии",
-        "url": "/scripts/Dreams_about_Bruriah.json"
+        "url": "/scripts/Dreams_about_Bruriah.json",
+        "md": "/scripts/Dreams_about_Bruriah.md"
     },
     {
         "name": "comedy",
         "title": "Комедия Положений",
-        "url": "/scripts/comedy.json"
+        "url": "/scripts/comedy.json",
+        "md": "/scripts/comedy.md",
+        "sourceUrl": "https://docs.google.com/document/d/17j09l6sUgydxPe9b4priGhHkL7nsT0OtAT6y2TZS0z4/edit?tab=t.0"
     },
     {
         "name": "tristan_and_izota",
         "title": "Трышчан і Іжота",
-        "url": "/scripts/TristanAndIzota.json"
+        "url": "/scripts/TristanAndIzota.json",
+        "md": "/scripts/TristanAndIzota.md",
+        "sourceUrl": "https://docs.google.com/document/d/1XMm8hhld3k8XnXAuYPbh7I1jxTc20zVr/edit"
     }
-
 ]
