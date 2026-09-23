@@ -23,6 +23,7 @@ Theatrical script reader for rehearsal practice.
 - Active filter pills with quick remove
 - Scene quick-navigation dropdown
 - Mobile-first touch-friendly UI
+- Link from the script selector to the source document a script came from
 
 ## Roadmap
 
@@ -42,7 +43,7 @@ Theatrical script reader for rehearsal practice.
 - [ ] PWA support - offline access and installable app
 
 ### Future
-- [ ] Google Docs integration - import/sync scripts on demand
+- [x] Google Docs integration - daily sync that opens a PR when a source document changes
 
 ## Development
 
@@ -51,11 +52,33 @@ npm install    # Install dependencies
 npm run dev    # Start dev server
 npm run build  # Production build
 npm run deploy # Deploy to GitHub Pages
+
+npm run sync       # Pull scripts from their source Google Docs
+npm run sync:check # Report which scripts have drifted, change nothing
 ```
 
 See [AGENTS.md](AGENTS.md) for detailed development guidelines.
 
 ## Recent Changes
+
+### Google Docs Sync (Sep 2026)
+
+Scripts whose registry entry declares a `sourceUrl` are now kept in step
+with the document they came from:
+
+- **Daily workflow** - `.github/workflows/sync-scripts.yml` downloads each
+  document as markdown, reparses it, and opens one pull request per changed
+  script. Nothing merges automatically.
+- **Guardrails** - a download must be HTTP 200, markdown, not HTML, and
+  above a minimum size; a parse that loses more than 20% of its dialogue
+  lines aborts. A broken or unshared document fails the job instead of
+  quietly overwriting a script.
+- **Source link** - the script selector links to the document a script was
+  generated from.
+- **Local equivalents** - `npm run sync`, `npm run sync:check`, `npm run parse`.
+
+Requires "Allow GitHub Actions to create and approve pull requests" under
+Settings → Actions → General.
 
 ### Bottom Sheet Rewrite (Jul 2026)
 

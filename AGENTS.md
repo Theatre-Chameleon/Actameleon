@@ -14,7 +14,13 @@ npm run build        # Production build (outputs to ./dist)
 npm run preview      # Preview production build locally
 npm run deploy       # Deploy to GitHub Pages
 
-# Parse markdown scripts to JSON
+# Sync scripts from their source Google Docs (see "Script Sync" below)
+npm run sync                     # Download + reparse every script with a sourceUrl
+npm run sync:check               # Report drift without writing (exit 2 if any)
+npm run sync -- --only <name>    # Restrict to one registry entry
+npm run parse                    # Reparse local markdown only, no network
+
+# Parse a single markdown file directly
 npm run parse-fools | parse-festival | parse-memorialpray | parse-twisters | parse-lbg | parse-dreams | parse-comedy | parse-tristan
 ```
 
@@ -62,8 +68,51 @@ src/
 │   ├── ScriptSelector                                        # Script picker
 │   └── ui/           # Reusable UI primitives (BottomSheet, FullScreenModal, etc.)
 └── services/         # text2voice.js (Web Speech API wrapper)
+scripts/              # sync-scripts.mjs (Google Docs sync, Node only)
 public/scripts/       # Play script data (JSON + source MD)
 ```
+
+### Script Registry
+
+`src/assets/scripts.json` is the single source of truth for which scripts
+exist. Each entry:
+
+| Field | Required | Purpose |
+| --- | --- | --- |
+| `name` | yes | Stable id; also the localStorage config key suffix |
+| `title` | yes | Label shown in the UI |
+| `url` | yes | Path to the parsed JSON, fetched at runtime |
+| `md` | yes | Path to the source markdown |
+| `sourceUrl` | no | Link to the upstream Google Doc |
+
+Paths are relative to `public/`. `sourceUrl` is what enables both the sync
+job and the source link in the script selector, so an entry without one is
+simply left alone by automation.
+
+### Script Sync
+
+`scripts/sync-scripts.mjs` downloads each script from its Google Doc,
+reparses it and writes both the markdown and the JSON.
+
+- The export URL is derived from `sourceUrl`. The `tab` query parameter is
+  carried over, otherwise a multi-tab document gains a stray `# Tab 1`
+  heading and every downstream diff is noise.
+- The document must be shared as "anyone with the link can view"; the job
+  makes unauthenticated requests.
+- Downloads are rejected unless they are HTTP 200, have a markdown content
+  type, are not HTML and clear a minimum size, so a sign-in page cannot
+  overwrite a script. After parsing, a drop of more than 20% in dialogue
+  lines aborts the sync unless `--force` is passed.
+- `.github/workflows/sync-scripts.yml` runs this daily and on demand, then
+  opens one pull request per changed script. Nothing is merged
+  automatically.
+
+Because the job overwrites `public/scripts/*.md`, the Google Doc is the
+source of truth: fix formatting in the document, never in the committed
+markdown, or the next sync will revert it.
+
+To onboard a script, add its `sourceUrl` to the registry. No other change
+is needed.
 
 ### State Management
 
@@ -76,6 +125,9 @@ public/scripts/       # Play script data (JSON + source MD)
 - **CI/CD**: GitHub Actions deploys to GitHub Pages on push to `main`
 - **Node version**: 22 (see `.github/workflows/deploy.yml`)
 - **Custom domain**: Configured via `CNAME` file
+- **Script sync**: `.github/workflows/sync-scripts.yml` needs "Allow GitHub
+  Actions to create and approve pull requests" enabled under
+  Settings → Actions → General
 
 ## Workflow Rules
 
