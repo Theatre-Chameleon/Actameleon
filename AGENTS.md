@@ -185,3 +185,21 @@ is needed.
 4. **Multilingual**: the language used for text-to-speech comes from the
    registry, not from the script JSON. See "Text-to-Speech Language" below.
 5. **No play content in docs** - Don't include play-specific information (titles, quotes, character names) in documentation; scripts are runtime data
+
+## Known Issues
+
+Longstanding defects, recorded so they are not rediscovered as surprises.
+None are urgent; each needs a decision rather than just a patch.
+
+* **The script heading is always blank.** `ScriptDisplay.vue` renders
+  `script.title`, but the parsed JSON has no `title` - it has `playTitle`,
+  which the parser hardcodes to an empty string. Both halves are wrong, so
+  fixing it means choosing a source: parse a title out of the markdown, or
+  use the registry `title` the selector already shows.
+* **`playTitle`, `author` and `description` are dead fields.** The parser
+  emits them on every script and never fills them in. Either populate them
+  from the markdown front matter or drop them from the format.
+* **Scene numbers are global, not per act.** The parser counts scenes
+  across the whole play, so the second act does not restart at 1. Config
+  stored in localStorage keys off these numbers, so renumbering would
+  invalidate saved scene selections.
