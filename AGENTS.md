@@ -177,8 +177,18 @@ edited, and anything the user has pinned survives because overrides are
 stored against the name.
 
 Users can override a colour per role from the swatch in the actor filter
-list. Overrides live in `config.actorColorOverrides` as `name -> palette
-index`. Two roles are allowed to share a colour this way.
+list. Overrides live in `config.actorHueOverrides` as `name -> index into
+HUE_CHOICES`, keyed by name so they survive the re-ranking that follows a
+script edit. Two roles are allowed to share a colour this way.
+
+The picker offers `HUE_CHOICES`, a separate hue-ordered ramp, rather than
+the palette. Showing the palette was a mistake: it is ordered so that every
+prefix is well spread, which leaves its later entries existing only to fill
+gaps, and 33 of the 48 had a near twin once laid out as a grid. Sorted by
+hue, neighbours are meant to resemble each other and the set reads as a
+spectrum. Lightness there is chosen per hue, because the best lightness
+runs from about 0.45 for violet to 0.57 for red and holding it constant
+drives yellows and greens to zero chroma, turning them grey.
 
 The palette is generated, not hand-picked:
 

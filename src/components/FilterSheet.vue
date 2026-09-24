@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue';
-import { PALETTE_SIZE, paletteColor } from '../services/actorColor.js';
+import { hueChoices } from '../services/actorColor.js';
 import BottomSheet from './ui/BottomSheet.vue';
 import SearchableList from './ui/SearchableList.vue';
 import CollapsibleSection from './ui/CollapsibleSection.vue';
@@ -31,7 +31,9 @@ const togglePicker = (actorId) => {
   pickerFor.value = pickerFor.value === actorId ? null : actorId;
 };
 
-const overrides = () => props.config.actorColorOverrides || (props.config.actorColorOverrides = {});
+const choices = hueChoices();
+
+const overrides = () => props.config.actorHueOverrides || (props.config.actorHueOverrides = {});
 
 const setColor = (actorId, index) => {
   overrides()[actorId] = index;
@@ -199,13 +201,13 @@ const speedIndex = computed(() => {
         <template #after="{ item }">
           <div v-if="pickerFor === item.id" class="picker">
             <button
-              v-for="i in PALETTE_SIZE"
-              :key="i"
+              v-for="choice in choices"
+              :key="choice.index"
               class="picker-swatch"
-              :class="{ 'picker-swatch-current': colorFor(item.id)?.index === i - 1 }"
-              :style="{ '--swatch-light': paletteColor(i - 1).light, '--swatch-dark': paletteColor(i - 1).dark }"
-              :aria-label="`Colour ${i}`"
-              @click.stop.prevent="setColor(item.id, i - 1)"
+              :class="{ 'picker-swatch-current': colorFor(item.id)?.hueIndex === choice.index }"
+              :style="{ '--swatch-light': choice.light, '--swatch-dark': choice.dark }"
+              :aria-label="`Colour ${choice.index + 1} of ${choices.length}`"
+              @click.stop.prevent="setColor(item.id, choice.index)"
             />
             <button class="picker-reset" @click.stop.prevent="clearColor(item.id)">Default</button>
           </div>

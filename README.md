@@ -73,7 +73,7 @@ active filter pills.
   rank, so leads are the easiest to tell apart and near-duplicates only
   reach walk-on parts
 - **Overridable** - tap the swatch beside a role in the filter list to pick
-  another colour; overrides are remembered per role name
+  another colour from a hue spectrum; overrides are remembered per role name
 - **Readable in both themes** - every colour clears WCAG AA on every
   background the app uses, light and dark
 - **Colourblind aware** - separability under protanopia and deuteranopia is

@@ -33,7 +33,7 @@ const defaultConfig = () => ({
   skipMyLines: false,
   skipSpeed: 1,
   colorActors: false,
-  actorColorOverrides: {}
+  actorHueOverrides: {}
 });
 
 const configFor = (scriptName) => ({
@@ -146,7 +146,7 @@ watch(config, (newVal) => {
 });
 
 const actorColors = computed(() =>
-  config.colorActors ? actorColorsForScript(script, config.actorColorOverrides || {}) : null
+  config.colorActors ? actorColorsForScript(script, config.actorHueOverrides || {}) : null
 );
 
 const scrollToTop = () => {
