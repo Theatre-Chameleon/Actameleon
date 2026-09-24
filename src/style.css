@@ -294,12 +294,11 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 
-  .scene > :nth-child(even) {
+  /* Gated rather than overridden: a rule that switched striping off for
+     coloured scenes would outrank .line-colored and wipe the actor tint with
+     it, which is exactly what it did on every even row. */
+  .scene:not(.scene-colored) > :nth-child(even) {
     @apply bg-gray-50; /* Tailwind class for light gray background */
-  }
-
-  .scene-colored > :nth-child(even) {
-    background-color: transparent;
   }
 }
 
@@ -340,11 +339,7 @@ button:focus-visible {
     border-color: var(--actor-color-dark);
   }
 
-  .scene > :nth-child(even) {
+  .scene:not(.scene-colored) > :nth-child(even) {
     @apply bg-gray-800; /* Tailwind class for dark gray background */
-  }
-
-  .scene-colored > :nth-child(even) {
-    background-color: transparent;
   }
 }
