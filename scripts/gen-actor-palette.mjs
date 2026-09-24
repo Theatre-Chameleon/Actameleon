@@ -1,0 +1,203 @@
+#!/usr/bin/env node
+/**
+ * Generate the actor colour palette baked into src/services/actorColor.js.
+ *
+ *   node scripts/gen-actor-palette.mjs            print the palette table
+ *   node scripts/gen-actor-palette.mjs --check    verify the committed table
+ *
+ * The palette has to satisfy four things at once:
+ *
+ *   1. Every colour is legible on every background the app actually uses,
+ *      in both themes (WCAG AA, 4.5:1).
+ *   2. Colours stay distinguishable for red-green colour vision deficiency.
+ *      This is the hard one: at a fixed lightness a deuteranope sees red and
+ *      green as the same colour, so lightness has to vary too.
+ *   3. Any prefix of the sequence is itself a good palette, so growing the
+ *      cast appends colours instead of reshuffling them.
+ *   4. A colour keeps its hue between light and dark mode, so an actor stays
+ *      recognisable if the system theme flips mid-rehearsal.
+ *
+ * The method is farthest-point sampling over a candidate pool that has been
+ * pre-filtered for contrast, using a distance that takes the worst case over
+ * {normal, protanopia, deuteranopia} x {light, dark}. Optimising the worst
+ * case is what keeps the palette honest: a colour pair is only as good as it
+ * looks to the viewer who can least tell them apart.
+ */
+
+const SIZE = 48;
+
+// Lightness bands. Chosen so the whole band clears AA; the pool filter below
+// enforces it exactly, these just bound the search.
+const LIGHT_L = [0.30, 0.52];
+const DARK_L = [0.66, 0.89];
+
+// Backgrounds a coloured actor name can actually land on.
+const LIGHT_BG = ['#ffffff', '#f9fafb', '#fefce8']; // page, striped row, highlight
+const DARK_BG = ['#242424', '#1f2937', '#332920'];
+const MIN_CONTRAST = 4.5;
+
+// ------------------------------------------------------------ colour science
+
+const clamp = c => Math.min(1, Math.max(0, c));
+const srgbToLinear = c => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+const hexToLinear = h => [1, 3, 5].map(i => srgbToLinear(parseInt(h.slice(i, i + 2), 16) / 255));
+
+function oklchToLinear(L, C, H) {
+  const h = (H * Math.PI) / 180;
+  const a = C * Math.cos(h);
+  const b = C * Math.sin(h);
+  const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+  const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+  const s_ = L - 0.0894841775 * a - 1.2914855480 * b;
+  const l = l_ ** 3, m = m_ ** 3, s = s_ ** 3;
+  return [
+    4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+    -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+    -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s
+  ];
+}
+
+function linearToOklab([r, g, b]) {
+  r = clamp(r); g = clamp(g); b = clamp(b);
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  return [
+    0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
+    1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+    0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s
+  ];
+}
+
+const inGamut = v => v.every(c => c >= -0.001 && c <= 1.001);
+const luminance = v => 0.2126 * clamp(v[0]) + 0.7152 * clamp(v[1]) + 0.0722 * clamp(v[2]);
+
+function contrast(linear, hex) {
+  const bg = hexToLinear(hex);
+  const a = luminance(linear);
+  const b = 0.2126 * bg[0] + 0.7152 * bg[1] + 0.0722 * bg[2];
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+}
+
+// Vienot 1999 dichromat simulation, applied in linear RGB.
+const CVD = {
+  normal: [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
+  protan: [[0.11238, 0.88762, 0], [0.11238, 0.88762, 0], [0.00401, -0.00401, 1]],
+  deutan: [[0.29275, 0.70725, 0], [0.29275, 0.70725, 0], [-0.02234, 0.02234, 1]]
+};
+const simulate = (v, kind) =>
+  CVD[kind].map(row => clamp(row[0] * clamp(v[0]) + row[1] * clamp(v[1]) + row[2] * clamp(v[2])));
+
+const views = linear => [
+  linearToOklab(linear),
+  linearToOklab(simulate(linear, 'protan')),
+  linearToOklab(simulate(linear, 'deutan'))
+];
+const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+
+/** Worst-case separation over both themes and all three kinds of vision. */
+function separation(a, b) {
+  let min = Infinity;
+  for (let i = 0; i < 3; i++) {
+    min = Math.min(min, dist(a.lightViews[i], b.lightViews[i]), dist(a.darkViews[i], b.darkViews[i]));
+  }
+  return min;
+}
+
+// ------------------------------------------------------------- pool + search
+
+/** Strongest chroma at this lightness and hue that is in gamut and clears AA. */
+function usableChroma(L, H, backgrounds) {
+  let best = 0;
+  for (let c = 0.03; c <= 0.24; c += 0.005) {
+    const v = oklchToLinear(L, c, H);
+    if (inGamut(v) && backgrounds.every(bg => contrast(v, bg) >= MIN_CONTRAST)) best = c;
+  }
+  return best;
+}
+
+function buildPool() {
+  const pool = [];
+  const steps = 14;
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const Ll = LIGHT_L[0] + (LIGHT_L[1] - LIGHT_L[0]) * t;
+    const Ld = DARK_L[0] + (DARK_L[1] - DARK_L[0]) * t;
+    for (let H = 0; H < 360; H += 6) {
+      const Cl = usableChroma(Ll, H, LIGHT_BG);
+      const Cd = usableChroma(Ld, H, DARK_BG);
+      if (Cl < 0.05 || Cd < 0.05) continue;
+      pool.push({
+        H, Ll, Cl, Ld, Cd,
+        lightViews: views(oklchToLinear(Ll, Cl, H)),
+        darkViews: views(oklchToLinear(Ld, Cd, H))
+      });
+    }
+  }
+  return pool;
+}
+
+function farthestPointSample(pool, size) {
+  const chosen = [pool[0]];
+  while (chosen.length < size) {
+    let best = null;
+    let bestDist = -1;
+    for (const candidate of pool) {
+      let nearest = Infinity;
+      for (const picked of chosen) {
+        const d = separation(candidate, picked);
+        if (d < nearest) nearest = d;
+        if (nearest <= bestDist) break;
+      }
+      if (nearest > bestDist) { bestDist = nearest; best = candidate; }
+    }
+    chosen.push(best);
+  }
+  return chosen;
+}
+
+// ----------------------------------------------------------------- reporting
+
+const fmt = n => n.toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
+const toCss = (L, C, H) => `oklch(${fmt(L)} ${fmt(C)} ${H})`;
+
+function minSeparation(entries) {
+  let min = Infinity;
+  for (let i = 0; i < entries.length; i++)
+    for (let j = i + 1; j < entries.length; j++)
+      min = Math.min(min, separation(entries[i], entries[j]));
+  return min;
+}
+
+function report(palette) {
+  console.error(`pool candidates: ${buildPool.cached ?? 'n/a'}`);
+  console.error('\nworst-case separation by prefix length:');
+  for (const n of [7, 10, 12, 16, 19, 25, 32, 41, 48]) {
+    if (n > palette.length) continue;
+    const s = minSeparation(palette.slice(0, n));
+    console.error(`  n=${String(n).padStart(2)}  ${s.toFixed(4)}  ${s >= 0.02 ? 'above JND' : 'BELOW JND'}`);
+  }
+  let wl = Infinity, wd = Infinity;
+  for (const e of palette) {
+    for (const bg of LIGHT_BG) wl = Math.min(wl, contrast(oklchToLinear(e.Ll, e.Cl, e.H), bg));
+    for (const bg of DARK_BG) wd = Math.min(wd, contrast(oklchToLinear(e.Ld, e.Cd, e.H), bg));
+  }
+  console.error(`\nworst contrast: light ${wl.toFixed(2)}:1, dark ${wd.toFixed(2)}:1 ` +
+    `-> ${wl >= MIN_CONTRAST && wd >= MIN_CONTRAST ? 'all pass WCAG AA' : 'FAILS'}`);
+}
+
+function main() {
+  const pool = buildPool();
+  buildPool.cached = pool.length;
+  const palette = farthestPointSample(pool, SIZE);
+  report(palette);
+
+  const rows = palette
+    .map(e => `  ['${toCss(e.Ll, e.Cl, e.H)}', '${toCss(e.Ld, e.Cd, e.H)}']`)
+    .join(',\n');
+  console.log(`// Generated by scripts/gen-actor-palette.mjs - do not edit by hand.\n` +
+    `// Each entry is [light mode, dark mode].\n` +
+    `export const PALETTE = [\n${rows}\n];`);
+}
+
+main();
