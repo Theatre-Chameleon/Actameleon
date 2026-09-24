@@ -160,6 +160,15 @@ Off by default, toggled by `config.colorActors`. When on, every character's
 name is drawn in its own colour in the script body, the actor filter list
 and the active filter pills.
 
+Each scene heading carries a row of pills naming the characters who speak in
+it and how many lines each has *in that scene*, busiest first. It uses the
+same ordering rule as the actor filter list, which is why the comparator and
+the tally live in `actorColor.js` rather than being written out a third time.
+The row sits inside the scene header element on purpose: row striping keys
+off `.scene > :nth-child(even)`, so adding a direct child would flip the
+stripes of every line in the scene. The pills show whether or not colour
+coding is on; without it they use the default text colour.
+
 Colours come from cast rank, not from the name. Roles are ordered by how
 many lines they speak and rank picks the palette entry, so the characters
 on stage most often get the most clearly different colours and

@@ -132,26 +132,46 @@ export function isStageDirections(actor) {
 }
 
 /**
- * Speaking roles in rank order: most lines first.
+ * Busiest role first, ties broken by name.
  *
- * Ties are broken by name, and by code unit rather than localeCompare, which
- * varies by locale and would make the colours depend on the device. Ties are
- * not an edge case; in the largest script most of the cast shares a line count
- * with somebody.
+ * By code unit rather than localeCompare, which varies by locale and would
+ * make the colours depend on the device. Ties are not an edge case; in the
+ * largest script most of the cast shares a line count with somebody.
+ *
+ * Exported because the same order has to hold in three places - the colour
+ * ranking, the actor filter list and the per-scene cast - and they would
+ * disagree the moment one of them drifted.
  */
+export function byLineCount([actorA, countA], [actorB, countB]) {
+  return countB - countA || (actorA < actorB ? -1 : actorA > actorB ? 1 : 0);
+}
+
+/** Count lines per speaking role, stage directions excluded. */
+export function countSpeakers(lines) {
+  const counts = new Map();
+  for (const line of lines || []) {
+    if (isStageDirections(line.actor)) continue;
+    counts.set(line.actor, (counts.get(line.actor) || 0) + 1);
+  }
+  return counts;
+}
+
+/** Roles of a single scene, busiest first, as [actor, count] pairs. */
+export function sceneCast(scene) {
+  return [...countSpeakers(scene?.lines).entries()].sort(byLineCount);
+}
+
+/** Speaking roles of a whole script in rank order: most lines first. */
 export function rankedCast(script) {
   const counts = new Map();
   for (const act of script?.acts || []) {
     for (const scene of act.scenes || []) {
-      for (const line of scene.lines || []) {
-        if (isStageDirections(line.actor)) continue;
-        counts.set(line.actor, (counts.get(line.actor) || 0) + 1);
+      for (const [actor, n] of countSpeakers(scene.lines)) {
+        counts.set(actor, (counts.get(actor) || 0) + n);
       }
     }
   }
-  return [...counts.entries()]
-    .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
-    .map(([actor]) => actor);
+  return [...counts.entries()].sort(byLineCount).map(([actor]) => actor);
 }
 
 /**

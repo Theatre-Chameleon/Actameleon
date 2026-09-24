@@ -22,6 +22,7 @@ Theatrical script reader for rehearsal practice.
 - Highlight mode - show all lines, highlight your character
 - Active filter pills with quick remove
 - Scene quick-navigation dropdown
+- Per-scene cast summary - who speaks in a scene and how much, under its title
 - Mobile-first touch-friendly UI
 - Link from the script selector to the source document a script came from
 - Actor colour coding - a distinct, colourblind-aware colour per character, overridable per role (off by default)
