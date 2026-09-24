@@ -59,8 +59,13 @@ const markActive = (script) => {
         const line = scene.lines[i];
         if (config.selectedActors.length == 0) {
           line.state = "show";
+          line.mine = false;
         } else {
           const isSelectedActor = config.selectedActors.includes(line.actor);
+          // Whether this line belongs to someone the user is rehearsing,
+          // independent of state: in highlight mode it is "highlight", in
+          // filter mode "show", and colour coding styles both the same way.
+          line.mine = isSelectedActor;
           
           if (config.highlightOnly) {
             // Highlight mode: show all, but mark selected for highlighting

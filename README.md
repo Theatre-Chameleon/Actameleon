@@ -8,7 +8,7 @@ Theatrical script reader for rehearsal practice.
 
 - Script display organized by Acts & Scenes
 - Actor filtering - focus on specific character's lines
-- "Show Lines Prior" - see cue lines before your part
+- "Show Lines Prior" - see cue lines before your part (with colour coding on, cues get a dotted edge, sit flush on your reply, and emphasise their last words)
 - Hide text mode - self-test your memorization
 - Text-to-speech - listen to the script read aloud
 - "Skip my lines" TTS mode - hear other actors, get a ding + pause to say your lines

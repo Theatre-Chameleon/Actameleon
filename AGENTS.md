@@ -233,6 +233,16 @@ colour against a tint of itself and not only against plain backgrounds.
 Hidden lines stay inline markers and take the colour on the asterisk, so a
 run of them shows who speaks in what order without giving the words away.
 
+Cue lines (the line before each of the user's own, with "Show cue lines" on)
+are marked by shape rather than colour when colour coding is on, since colour
+already says who is speaking: a dotted edge and a 4% wash, against a solid
+6px edge and a 7% wash on the user's own lines. `markActive` sets
+`line.mine` for every line of a selected actor so "mine" looks the same in
+filter and highlight mode. A cue sits flush on the line it prompts. On
+longer cues `splitCueTail` (`src/services/cueTail.js`) emphasises the last
+few spoken words, skipping bracketed directions, because that is what an
+actor listens for. With colour coding off, cues keep their indigo text.
+
 Components receive a single `actorColors` prop, `{ [actor]: { light, dark,
 index } }` or `null` when the feature is off, drilled the same way as
 `hideToCheck`. Each element carries both variants as custom properties and

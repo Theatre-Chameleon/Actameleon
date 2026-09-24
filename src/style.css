@@ -205,7 +205,8 @@ button:focus-visible {
 
 .line-clue {
   @apply flex flex-col sm:flex-row items-start text-left border-b;
-  color: #646cff;
+  /* Was #646cff, which only reached 4.09:1 on white, below WCAG AA. */
+  color: #4f46e5;
 }
 
 .line-highlight {
@@ -242,14 +243,24 @@ button:focus-visible {
   margin-bottom: 0.15rem;
 }
 
-/* A selected actor's line, in highlight mode. Most of the emphasis is in the
-   edge, not the wash: the name sits on that wash and shares its hue, so every
-   extra percent comes straight out of the contrast the name needs. The
-   palette is solved for 7.5%, so 7% here keeps a margin. */
-.line-highlight.line-colored {
+/* A line of a character the user is rehearsing, in any mode. Most of the
+   emphasis is in the edge, not the wash: the name sits on that wash and shares
+   its hue, so every extra percent comes straight out of the contrast the name
+   needs. The palette is solved for 7.5%, so 7% here keeps a margin. */
+.line-mine.line-colored {
   border-left-width: 6px;
   background-color: color-mix(in srgb, var(--actor-color-light) 7%, transparent);
   padding-left: 0.6rem;
+}
+
+/* A cue: the line just before one of the user's own. Colour already says who
+   is speaking, so a cue is told apart by shape instead - a dotted edge, which
+   reads as context where a solid one reads as "mine" - and by a lighter wash.
+   Only the style is set, never the colour, so the dark theme's edge colour
+   still applies. */
+.line-clue.line-colored {
+  border-left-style: dotted;
+  background-color: color-mix(in srgb, var(--actor-color-light) 4%, transparent);
 }
 
 /* Lines with no speaker, such as standalone stage directions, get no edge and
@@ -261,6 +272,42 @@ button:focus-visible {
   border-bottom: 0;
   padding: 0.3rem 0.6rem 0.3rem calc(3px + 0.6rem);
   margin-bottom: 0.15rem;
+}
+
+/* Cue text keeps the normal text colour when colour coding is on: an indigo
+   "this is a cue" competes with the colour that says who is speaking. This
+   also covers stage directions that are part of a cue. */
+.scene-colored .line-clue {
+  color: inherit;
+}
+
+/* The last few words of a longer cue, which are what an actor listens for.
+   Only rendered with colour coding on; see splitCueTail. */
+.cue-tail {
+  font-weight: 600;
+}
+
+/* Keep each cue with the line it prompts: a gap above the cue so every
+   exchange starts fresh, and the cue sitting flush on the reply below it,
+   with the corners where they meet squared off so the two read as one. The
+   :has() rules only refine that; a browser without :has() still shows the
+   gap and the edges. */
+.scene-colored :not(.line-clue) + .line-clue {
+  margin-top: 0.6rem;
+}
+
+.scene-colored .line-clue:has(+ .line-mine) {
+  margin-bottom: 0;
+}
+
+.line-clue.line-colored:has(+ .line-mine) {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.line-clue.line-colored + .line-mine.line-colored {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
 }
 
 /* Hidden lines stay inline chips, so they get the colour on the marker rather
@@ -327,8 +374,12 @@ button:focus-visible {
     background-color: color-mix(in srgb, var(--actor-color-dark) 6%, transparent);
   }
 
-  .line-highlight.line-colored {
+  .line-mine.line-colored {
     background-color: color-mix(in srgb, var(--actor-color-dark) 7%, transparent);
+  }
+
+  .line-clue.line-colored {
+    background-color: color-mix(in srgb, var(--actor-color-dark) 4%, transparent);
   }
 
   .line-hide.line-colored {
