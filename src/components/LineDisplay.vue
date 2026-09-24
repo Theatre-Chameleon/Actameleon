@@ -1,17 +1,20 @@
 <template>
-  <div :class="[`line-${line.state}`, { 'line-selected' : line.selected}]" :data-line-id="lineId">
+  <div
+    :class="[`line-${line.state}`, { 'line-selected': line.selected, 'line-colored': actorColor }]"
+    :style="actorColor && { '--actor-color-light': actorColor.light, '--actor-color-dark': actorColor.dark }"
+    :data-line-id="lineId"
+  >
     <strong
       v-if="line.actor && line.state != 'hide'"
       class="mr-2"
       :class="{ 'actor-color': actorColor }"
-      :style="actorColor && { '--actor-color-light': actorColor.light, '--actor-color-dark': actorColor.dark }"
     >{{ line.actor }}:</strong>
     <span v-if="line.setting && line.state != 'hide' && !hideText" class="italic mr-2">{{ line.setting }}</span>
     <span v-if="line.state!='hide' && !hideText">{{ line.text }}</span>
     <button v-if="line.state!='hide' && !hideText && hideToCheck && (line.state == 'show' || line.state == 'highlight')" @click="toggleHideText" class="hide-text-button">Hide</button>
     <button v-if="line.state!='hide' && line.state!='highlight' && hideText" @click="toggleHideText" class="show-text-button">Show</button>
     <button v-if="line.state=='highlight' && hideText" @click="toggleHideText" class="show-text-button">Show</button>
-    <span v-if="line.state=='hide'">*</span>
+    <span v-if="line.state=='hide'" :class="{ 'actor-color': actorColor }">*</span>
   </div>
 </template>
 

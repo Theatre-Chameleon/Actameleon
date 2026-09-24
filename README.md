@@ -68,7 +68,8 @@ Optional per-character colours, off by default, toggled from the filter
 sheet. Names are coloured in the script, the actor filter list and the
 active filter pills.
 
-- **A different colour for every role** in a script
+- **A different colour for every role** in a script, shown on the name, as an
+  edge on the line and as a faint wash behind it
 - **Best colours to the busiest roles** - colours are handed out by cast
   rank, so leads are the easiest to tell apart and near-duplicates only
   reach walk-on parts

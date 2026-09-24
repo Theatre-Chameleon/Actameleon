@@ -1,5 +1,9 @@
 <template>
-  <div class="scene p-4 border rounded-lg mb-4 sm:p-6 md:p-8 lg:p-10 xl:p-12" :data-scene="scene.sceneNumber">
+  <div
+    class="scene p-4 border rounded-lg mb-4 sm:p-6 md:p-8 lg:p-10 xl:p-12"
+    :class="{ 'scene-colored': actorColors }"
+    :data-scene="scene.sceneNumber"
+  >
     <div class="flex items-center justify-between mb-2">
       <h2 class="text-2xl font-semibold sm:text-3xl break-words">{{ scene.sceneTitle ?? `Scene ${scene.sceneNumber}` }}<span v-if="scene.title">: {{ scene.title }}</span></h2>
       <button v-if="hasPlayableLines" @click="$emit('play-from', scene.sceneNumber)" class="play-from-btn" title="Play from here">

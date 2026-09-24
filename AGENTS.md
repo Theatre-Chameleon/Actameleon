@@ -210,6 +210,20 @@ the bug the hashed version shipped with. And it solves slightly above the
 real thresholds, because the emitted values are rounded to three decimals
 and that is enough to drop a colour below AA.
 
+A coloured line also carries an edge in the character's colour and a 6% wash
+of the same colour, 7% with a heavier edge for a selected actor in highlight
+mode. Highlight drops its yellow while colour coding is on, because once
+colour carries identity a second colour for "mine" only competes with it.
+Row striping and the hairline dividers are suppressed for the same reason,
+via `scene-colored`, so a character's wash is the same on every row.
+
+This is the tightest contrast in the app: the name sits on a tint of itself
+and shares its hue with it. The generator solves for that case explicitly,
+at the stronger of the two washes, which is why `usableChroma` checks the
+colour against a tint of itself and not only against plain backgrounds.
+Hidden lines stay inline markers and take the colour on the asterisk, so a
+run of them shows who speaks in what order without giving the words away.
+
 Components receive a single `actorColors` prop, `{ [actor]: { light, dark,
 index } }` or `null` when the feature is off, drilled the same way as
 `hideToCheck`. Each element carries both variants as custom properties and

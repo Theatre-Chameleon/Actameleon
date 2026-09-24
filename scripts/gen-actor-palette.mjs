@@ -38,8 +38,8 @@ const HUE_STEPS = 24;
 
 // Lightness bands. Chosen so the whole band clears AA; the pool filter below
 // enforces it exactly, these just bound the search.
-const LIGHT_L = [0.28, 0.54];
-const DARK_L = [0.64, 0.90];
+const LIGHT_L = [0.20, 0.56];
+const DARK_L = [0.62, 0.94];
 
 // The picker ramp is free to leave the bands above, since it is not competing
 // with anything for separation; only legibility constrains it.
@@ -50,19 +50,35 @@ const DARK_L_WIDE = [0.55, 0.95];
 // pairs are exactly what the previous palette got wrong.
 const MIN_CHROMA = 0.06;
 
+// A speaker's line is washed with their own colour, so the name ends up on a
+// tint of itself and loses contrast exactly where it can least afford to.
+// Solved at the stronger of the two washes the app uses (a selected actor's
+// line), so both are safe. Most of the emphasis comes from a heavier bar
+// rather than a heavier wash, because the wash is what costs contrast.
+const TINT_STRENGTH = 0.075;
+
+// Body text, which also has to stay readable on that wash.
+const BODY_LIGHT = '#213547';
+const BODY_DARK = '#dedede'; // rgba(255,255,255,0.87) over the page
+
 // Hard floor on colour vision deficiency separation. Not maximised - see the
 // header - but never traded away. Solved slightly above the 0.02 target for
 // the same rounding reason as MIN_CONTRAST.
 const MIN_CVD = 0.021;
 
 // Backgrounds a coloured actor name can actually land on.
+// The yellow highlight backgrounds are deliberately absent: when colour coding
+// is on, a selected actor's line is washed with their own colour instead of
+// yellow, so a coloured name never lands on one.
 const LIGHT_BG = [
-  '#ffffff', // page
-  '#f9fafb', // striped row
-  '#fefce8', // highlighted line
+  '#ffffff', // page, and the script body once striping is suppressed
+  '#f9fafb', // filter list row hover
   '#f3f4f6'  // active filter pill
 ];
-const DARK_BG = ['#242424', '#1f2937', '#332920'];
+const DARK_BG = [
+  '#242424', // page
+  '#1f2937'  // filter pill and list row hover
+];
 
 // WCAG AA is 4.5:1. Solve for a little more, because the emitted oklch values
 // are rounded to three decimals and that can shave the true ratio.
@@ -106,6 +122,14 @@ function linearToOklab([r, g, b]) {
 
 const inGamut = v => v.every(c => c >= -0.001 && c <= 1.001);
 const luminance = v => 0.2126 * clamp(v[0]) + 0.7152 * clamp(v[1]) + 0.0722 * clamp(v[2]);
+const linearToSrgb = c => (c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055);
+
+/** Composite a colour over a background at the given alpha, the way CSS does. */
+function over(foreground, background, alpha) {
+  const f = foreground.map(linearToSrgb);
+  const b = background.map(linearToSrgb);
+  return f.map((c, i) => srgbToLinear(c * alpha + b[i] * (1 - alpha)));
+}
 
 function contrast(linear, hex) {
   const bg = hexToLinear(hex);
@@ -152,26 +176,47 @@ function cvdSeparation(a, b) {
 
 // ------------------------------------------------------------- pool + search
 
-/** Strongest chroma at this lightness and hue that is in gamut and clears AA. */
-function usableChroma(L, H, backgrounds) {
+/**
+ * Strongest chroma at this lightness and hue that is in gamut and stays legible.
+ *
+ * Legible means three things, not one: the colour on each plain background, the
+ * colour on a tint of itself over that background, and the body text on that
+ * same tint. The middle one is the binding constraint, because a colour and a
+ * wash of itself share a hue and so start out close together.
+ */
+function usableChroma(L, H, backgrounds, bodyText) {
   let best = 0;
   for (let c = 0.03; c <= 0.24; c += 0.005) {
     const v = oklchToLinear(L, c, H);
-    if (inGamut(v) && backgrounds.every(bg => contrast(v, bg) >= MIN_CONTRAST)) best = c;
+    if (!inGamut(v)) continue;
+    const ok = backgrounds.every(bg => {
+      const bgLin = hexToLinear(bg);
+      if (contrast(v, bg) < MIN_CONTRAST) return false;
+      if (!bodyText) return true;
+      const tint = over(v, bgLin, TINT_STRENGTH);
+      return contrastLin(v, tint) >= MIN_CONTRAST && contrastLin(hexToLinear(bodyText), tint) >= MIN_CONTRAST;
+    });
+    if (ok) best = c;
   }
   return best;
 }
 
+/** Contrast between two already-linear colours. */
+function contrastLin(a, b) {
+  const x = luminance(a), y = luminance(b);
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
+
 function buildPool() {
   const pool = [];
-  const steps = 16;
+  const steps = 24;
   for (let i = 0; i <= steps; i++) {
     const t = i / steps;
     const Ll = LIGHT_L[0] + (LIGHT_L[1] - LIGHT_L[0]) * t;
     const Ld = DARK_L[0] + (DARK_L[1] - DARK_L[0]) * t;
-    for (let H = 0; H < 360; H += 3) {
-      const Cl = usableChroma(Ll, H, LIGHT_BG);
-      const Cd = usableChroma(Ld, H, DARK_BG);
+    for (let H = 0; H < 360; H += 2) {
+      const Cl = usableChroma(Ll, H, LIGHT_BG, BODY_LIGHT);
+      const Cd = usableChroma(Ld, H, DARK_BG, BODY_DARK);
       if (Cl < MIN_CHROMA || Cd < MIN_CHROMA) continue;
       pool.push({
         H, Ll, Cl, Ld, Cd,
@@ -238,7 +283,7 @@ function pickerRamp() {
 function bestForHue(H, [lo, hi], backgrounds) {
   let best = { L: lo, C: 0 };
   for (let L = lo; L <= hi; L += 0.005) {
-    const C = usableChroma(L, H, backgrounds);
+    const C = usableChroma(L, H, backgrounds, null);
     if (C > best.C) best = { L, C };
   }
   return best;
