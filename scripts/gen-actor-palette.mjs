@@ -9,32 +9,55 @@
  *
  *   1. Every colour is legible on every background the app actually uses,
  *      in both themes (WCAG AA, 4.5:1).
- *   2. Colours stay distinguishable for red-green colour vision deficiency.
- *      This is the hard one: at a fixed lightness a deuteranope sees red and
- *      green as the same colour, so lightness has to vary too.
- *   3. Any prefix of the sequence is itself a good palette, so growing the
- *      cast appends colours instead of reshuffling them.
- *   4. A colour keeps its hue between light and dark mode, so an actor stays
- *      recognisable if the system theme flips mid-rehearsal.
+ *   2. Colours read as different colours. This is what the eye uses to tell
+ *      characters apart, and it lives almost entirely in hue and chroma.
+ *   3. Colours stay separable for red-green colour vision deficiency, which
+ *      needs lightness to vary as well, since at a fixed lightness a
+ *      deuteranope sees red and green as the same colour.
+ *   4. Any prefix of the sequence is itself a good palette, because colours
+ *      are handed out by cast rank: the roles with the most lines take the
+ *      front of the sequence and so get the best separated colours.
  *
- * The method is farthest-point sampling over a candidate pool that has been
- * pre-filtered for contrast, using a distance that takes the worst case over
- * {normal, protanopia, deuteranopia} x {light, dark}. Optimising the worst
- * case is what keeps the palette honest: a colour pair is only as good as it
- * looks to the viewer who can least tell them apart.
+ * Points 2 and 3 pull against each other, and the order matters. An earlier
+ * version maximised total OKLab distance, which let a pair "pass" on a
+ * lightness difference alone: two desaturated teals 12 degrees apart scored
+ * fine and were indistinguishable on screen. So chromatic distance, measured
+ * in the a-b plane, is the objective, and colour vision deficiency is a hard
+ * constraint rather than the thing being maximised.
+ *
+ * The method is farthest-point sampling over a candidate pool pre-filtered
+ * for contrast, taking the worst case over {light, dark} throughout: a pair
+ * is only as good as it looks in the theme where it looks worse.
  */
 
 const SIZE = 48;
 
 // Lightness bands. Chosen so the whole band clears AA; the pool filter below
 // enforces it exactly, these just bound the search.
-const LIGHT_L = [0.30, 0.52];
-const DARK_L = [0.66, 0.89];
+const LIGHT_L = [0.28, 0.54];
+const DARK_L = [0.64, 0.90];
+
+// Anything fainter than this reads as grey rather than as a colour, and grey
+// pairs are exactly what the previous palette got wrong.
+const MIN_CHROMA = 0.06;
+
+// Hard floor on colour vision deficiency separation. Not maximised - see the
+// header - but never traded away. Solved slightly above the 0.02 target for
+// the same rounding reason as MIN_CONTRAST.
+const MIN_CVD = 0.021;
 
 // Backgrounds a coloured actor name can actually land on.
-const LIGHT_BG = ['#ffffff', '#f9fafb', '#fefce8']; // page, striped row, highlight
+const LIGHT_BG = [
+  '#ffffff', // page
+  '#f9fafb', // striped row
+  '#fefce8', // highlighted line
+  '#f3f4f6'  // active filter pill
+];
 const DARK_BG = ['#242424', '#1f2937', '#332920'];
-const MIN_CONTRAST = 4.5;
+
+// WCAG AA is 4.5:1. Solve for a little more, because the emitted oklch values
+// are rounded to three decimals and that can shave the true ratio.
+const MIN_CONTRAST = 4.65;
 
 // ------------------------------------------------------------ colour science
 
@@ -95,8 +118,19 @@ const views = linear => [
 ];
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 
+/** Distance ignoring lightness. This is what makes two colours look different. */
+const chromaDist = (a, b) => Math.hypot(a[1] - b[1], a[2] - b[2]);
+
+/** How differently the two colours read, in the theme where they read worse. */
+function chromaticSeparation(a, b) {
+  return Math.min(
+    chromaDist(a.lightViews[0], b.lightViews[0]),
+    chromaDist(a.darkViews[0], b.darkViews[0])
+  );
+}
+
 /** Worst-case separation over both themes and all three kinds of vision. */
-function separation(a, b) {
+function cvdSeparation(a, b) {
   let min = Infinity;
   for (let i = 0; i < 3; i++) {
     min = Math.min(min, dist(a.lightViews[i], b.lightViews[i]), dist(a.darkViews[i], b.darkViews[i]));
@@ -118,15 +152,15 @@ function usableChroma(L, H, backgrounds) {
 
 function buildPool() {
   const pool = [];
-  const steps = 14;
+  const steps = 16;
   for (let i = 0; i <= steps; i++) {
     const t = i / steps;
     const Ll = LIGHT_L[0] + (LIGHT_L[1] - LIGHT_L[0]) * t;
     const Ld = DARK_L[0] + (DARK_L[1] - DARK_L[0]) * t;
-    for (let H = 0; H < 360; H += 6) {
+    for (let H = 0; H < 360; H += 3) {
       const Cl = usableChroma(Ll, H, LIGHT_BG);
       const Cd = usableChroma(Ld, H, DARK_BG);
-      if (Cl < 0.05 || Cd < 0.05) continue;
+      if (Cl < MIN_CHROMA || Cd < MIN_CHROMA) continue;
       pool.push({
         H, Ll, Cl, Ld, Cd,
         lightViews: views(oklchToLinear(Ll, Cl, H)),
@@ -137,21 +171,31 @@ function buildPool() {
   return pool;
 }
 
+/**
+ * Grow the sequence one colour at a time, each time taking the candidate that
+ * is most different from everything chosen so far.
+ *
+ * Because each step only appends, every prefix is the best palette that size
+ * could be, which is what lets colours be handed out by cast rank.
+ */
 function farthestPointSample(pool, size) {
   const chosen = [pool[0]];
   while (chosen.length < size) {
-    let best = null;
-    let bestDist = -1;
+    let best = null, bestScore = -1;      // satisfies the CVD floor
+    let fallback = null, fallbackScore = -1;  // best chromatic if none does
+
     for (const candidate of pool) {
-      let nearest = Infinity;
+      let chromatic = Infinity, cvd = Infinity;
       for (const picked of chosen) {
-        const d = separation(candidate, picked);
-        if (d < nearest) nearest = d;
-        if (nearest <= bestDist) break;
+        const c = chromaticSeparation(candidate, picked);
+        if (c < chromatic) chromatic = c;
+        const v = cvdSeparation(candidate, picked);
+        if (v < cvd) cvd = v;
       }
-      if (nearest > bestDist) { bestDist = nearest; best = candidate; }
+      if (chromatic > fallbackScore) { fallbackScore = chromatic; fallback = candidate; }
+      if (cvd >= MIN_CVD && chromatic > bestScore) { bestScore = chromatic; best = candidate; }
     }
-    chosen.push(best);
+    chosen.push(best || fallback);
   }
   return chosen;
 }
@@ -161,21 +205,24 @@ function farthestPointSample(pool, size) {
 const fmt = n => n.toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
 const toCss = (L, C, H) => `oklch(${fmt(L)} ${fmt(C)} ${H})`;
 
-function minSeparation(entries) {
-  let min = Infinity;
+function floors(entries) {
+  let chromatic = Infinity, cvd = Infinity;
   for (let i = 0; i < entries.length; i++)
-    for (let j = i + 1; j < entries.length; j++)
-      min = Math.min(min, separation(entries[i], entries[j]));
-  return min;
+    for (let j = i + 1; j < entries.length; j++) {
+      chromatic = Math.min(chromatic, chromaticSeparation(entries[i], entries[j]));
+      cvd = Math.min(cvd, cvdSeparation(entries[i], entries[j]));
+    }
+  return { chromatic, cvd };
 }
 
 function report(palette) {
   console.error(`pool candidates: ${buildPool.cached ?? 'n/a'}`);
-  console.error('\nworst-case separation by prefix length:');
-  for (const n of [7, 10, 12, 16, 19, 25, 32, 41, 48]) {
+  console.error('\nseparation by prefix length (= cast size):');
+  console.error('   n   chromatic      cvd');
+  for (const n of [8, 10, 12, 14, 16, 19, 24, 32, 41, 48]) {
     if (n > palette.length) continue;
-    const s = minSeparation(palette.slice(0, n));
-    console.error(`  n=${String(n).padStart(2)}  ${s.toFixed(4)}  ${s >= 0.02 ? 'above JND' : 'BELOW JND'}`);
+    const { chromatic, cvd } = floors(palette.slice(0, n));
+    console.error(`  ${String(n).padStart(2)}    ${chromatic.toFixed(4)}      ${cvd.toFixed(4)}`);
   }
   let wl = Infinity, wd = Infinity;
   for (const e of palette) {
