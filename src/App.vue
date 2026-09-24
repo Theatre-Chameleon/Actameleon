@@ -7,6 +7,7 @@ import FilterSheet from './components/FilterSheet.vue';
 import ActiveFilters from './components/ActiveFilters.vue';
 import scripts from './assets/scripts.json';
 import t2v from './services/text2voice.js';
+import { actorColorsForScript } from './services/actorColor.js';
 
 const safeJSONparse = (str) => {
   try {
@@ -27,7 +28,8 @@ const config = reactive(safeJSONparse(localStorage.getItem(`config.${selectedScr
                     hideText: false,
                     highlightOnly: false,
                     skipMyLines: false,
-                    skipSpeed: 1
+                    skipSpeed: 1,
+                    colorActors: false
                   });
 
 // Modal states
@@ -111,7 +113,10 @@ const loadSelectedScript = async () => {
                             selectedScenes: [],
                             showLinesPrior: false,
                             hideText: false,
-                            highlightOnly: false
+                            highlightOnly: false,
+                            skipMyLines: false,
+                            skipSpeed: 1,
+                            colorActors: false
                           };
   Object.assign(config, newConfig);
 }
@@ -123,11 +128,27 @@ watch(selectedScript, (newVal) => {
   loadSelectedScript();
 }, { immediate: true });
 
+// Which settings actually change what gets read aloud. Purely cosmetic options
+// are left out so toggling them does not stop playback mid-rehearsal.
+const playbackSignature = (c) => JSON.stringify([
+  c.selectedActors, c.selectedActs, c.selectedScenes,
+  c.showLinesPrior, c.hideText, c.highlightOnly, c.skipMyLines, c.skipSpeed
+]);
+let lastPlaybackSignature = playbackSignature(config);
+
 watch(config, (newVal) => {
   markActive(script);
-  t2v.cancel();
+  const signature = playbackSignature(newVal);
+  if (signature !== lastPlaybackSignature) {
+    lastPlaybackSignature = signature;
+    t2v.cancel();
+  }
   localStorage.setItem(`config.${selectedScript.value}`, JSON.stringify(newVal));
 });
+
+const actorColors = computed(() =>
+  config.colorActors ? actorColorsForScript(script) : null
+);
 
 const scrollToTop = () => {
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -213,13 +234,14 @@ const selectScript = (scriptName) => {
     <ActiveFilters 
       :config="config"
       :script="script"
+      :actor-colors="actorColors"
       @open-sheet="showFilterSheet = true"
       @remove-actor="removeActor"
       @remove-scene="removeScene"
     />
 
     <!-- Script Content -->
-    <ScriptDisplay :script="script" :hide-to-check="config.hideText" v-if="script" v-cloak @play-from="playFrom"/>
+    <ScriptDisplay :script="script" :hide-to-check="config.hideText" :actor-colors="actorColors" v-if="script" v-cloak @play-from="playFrom"/>
 
     <!-- Floating Action Buttons -->
     <div class="fab-container">
@@ -263,6 +285,7 @@ const selectScript = (scriptName) => {
       :open="showFilterSheet"
       :script="script"
       :config="config"
+      :actor-colors="actorColors"
       @close="showFilterSheet = false"
     />
   </div>

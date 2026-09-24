@@ -9,10 +9,16 @@ const props = defineProps({
   script: {
     type: Object,
     default: () => ({})
+  },
+  actorColors: {
+    type: Object,
+    default: null
   }
 });
 
 const emit = defineEmits(['open-sheet', 'remove-actor', 'remove-scene']);
+
+const colorFor = (actor) => props.actorColors?.[actor] || null;
 
 // Get display name for actor
 const getActorName = (actor) => {
@@ -40,6 +46,7 @@ const activeFilterCount = computed(() => {
   if (props.config.showLinesPrior) count++;
   if (props.config.hideText) count++;
   if (props.config.highlightOnly) count++;
+  if (props.config.colorActors) count++;
   return count;
 });
 
@@ -95,9 +102,14 @@ const openSheet = () => {
       <span 
         v-for="actor in visibleActors" 
         :key="actor"
-        class="filter-pill filter-pill-actor"
+        class="filter-pill"
+        :class="colorFor(actor) ? 'filter-pill-actor-colored' : 'filter-pill-actor'"
+        :style="colorFor(actor) && {
+          '--actor-color-light': colorFor(actor).light,
+          '--actor-color-dark': colorFor(actor).dark
+        }"
       >
-        <span class="pill-text">{{ getActorName(actor) }}</span>
+        <span class="pill-text" :class="{ 'actor-color': colorFor(actor) }">{{ getActorName(actor) }}</span>
         <button @click="removeActor(actor, $event)" class="pill-remove" aria-label="Remove">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -138,6 +150,9 @@ const openSheet = () => {
       </span>
       <span v-if="config.highlightOnly" class="filter-pill filter-pill-option">
         Highlight
+      </span>
+      <span v-if="config.colorActors" class="filter-pill filter-pill-option">
+        Colours
       </span>
     </div>
     
@@ -180,6 +195,12 @@ const openSheet = () => {
 .filter-pill {
   @apply flex items-center gap-1 px-2.5 py-1 rounded-full text-sm whitespace-nowrap;
   @apply flex-shrink-0;
+}
+
+/* Colour coding replaces the blue tint with a neutral one: the palette is
+   verified for contrast against gray-100/gray-800, not against the blue. */
+.filter-pill-actor-colored {
+  @apply bg-gray-100 dark:bg-gray-800;
 }
 
 .filter-pill-actor {

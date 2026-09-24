@@ -16,8 +16,14 @@ const props = defineProps({
   config: {
     type: Object,
     required: true
+  },
+  actorColors: {
+    type: Object,
+    default: null
   }
 });
+
+const colorFor = (actorId) => props.actorColors?.[actorId] || null;
 
 defineEmits(['close']);
 
@@ -147,7 +153,17 @@ const speedIndex = computed(() => {
         search-placeholder="Search actors..."
         @change="onActorChange"
         @reset="resetActors"
-      />
+      >
+        <template #label="{ item }">
+          <span
+            :class="{ 'actor-color': colorFor(item.id) }"
+            :style="colorFor(item.id) && {
+              '--actor-color-light': colorFor(item.id).light,
+              '--actor-color-dark': colorFor(item.id).dark
+            }"
+          >{{ item.label }}</span>
+        </template>
+      </SearchableList>
       
       <!-- Acts & Scenes Section -->
       <div class="section-divider"></div>
@@ -224,6 +240,19 @@ const speedIndex = computed(() => {
           <button
             @click="config.highlightOnly = !config.highlightOnly"
             :class="['toggle-btn', { 'toggle-btn-active': config.highlightOnly }]"
+          >
+            <span class="toggle-knob"></span>
+          </button>
+        </label>
+
+        <label class="option-row">
+          <span class="option-label">
+            Colour actor names
+            <span class="option-hint">Give every character its own colour</span>
+          </span>
+          <button
+            @click="config.colorActors = !config.colorActors"
+            :class="['toggle-btn', { 'toggle-btn-active': config.colorActors }]"
           >
             <span class="toggle-knob"></span>
           </button>

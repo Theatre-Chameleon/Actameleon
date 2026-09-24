@@ -9,7 +9,7 @@
       </button>
     </div>
     <div v-if="scene.setting" class="italic mb-2">{{ scene.setting }}</div>
-    <LineDisplay v-for="(line, index) in scene.lines" :key="`${scene.sceneNumber}-${index}`" :line="line" :line-id="`line-${scene.sceneNumber}-${index}`" :hide-to-check="hideToCheck"/>
+    <LineDisplay v-for="(line, index) in scene.lines" :key="`${scene.sceneNumber}-${index}`" :line="line" :line-id="`line-${scene.sceneNumber}-${index}`" :hide-to-check="hideToCheck" :actor-colors="actorColors"/>
   </div>
 </template>
 
@@ -30,6 +30,10 @@ export default {
     hideToCheck: {
       type: Boolean,
       default: false
+    },
+    actorColors: {
+      type: Object,
+      default: null
     }
   },
   computed: {

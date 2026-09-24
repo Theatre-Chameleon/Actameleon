@@ -82,8 +82,8 @@ src/
 │   ├── FilterSheet, ActiveFilters, SceneNav                  # Filter UI
 │   ├── ScriptSelector                                        # Script picker
 │   └── ui/           # Reusable UI primitives (BottomSheet, FullScreenModal, etc.)
-└── services/         # text2voice.js (Web Speech API wrapper)
-scripts/              # sync-scripts.mjs (Google Docs sync, Node only)
+└── services/         # text2voice.js (Web Speech API wrapper), actorColor.js
+scripts/              # sync-scripts.mjs, gen-actor-palette.mjs (Node only)
 public/scripts/       # Play script data (JSON + source MD)
 ```
 
@@ -154,6 +154,44 @@ markdown, or the next sync will revert it.
 To onboard a script, add its `sourceUrl` to the registry. No other change
 is needed.
 
+### Actor Colour Coding
+
+Off by default, toggled by `config.colorActors`. When on, every character's
+name is drawn in its own colour in the script body, the actor filter list
+and the active filter pills.
+
+Colours are derived from the actor name, so no script data changes. Within
+a script every actor gets a *different* colour, which the name alone cannot
+guarantee, so `src/services/actorColor.js` assigns them per script from the
+cast already present in the parsed JSON. Each actor's preference order over
+the 48 palette slots depends only on its own name, so adding a role keeps
+about 99% of the existing colours; only an actor whose exact slot the
+newcomer wants is displaced.
+
+The palette is generated, not hand-picked:
+
+```bash
+node scripts/gen-actor-palette.mjs        # print the table
+```
+
+The output must match the `PALETTE` constant in `actorColor.js`. Regenerate
+and paste if the generator changes. It solves for four things at once: WCAG
+AA on every background the app uses in both themes, distinguishability under
+red-green colour vision deficiency, a usable palette at every prefix length
+so growing the cast appends rather than reshuffles, and a stable hue between
+light and dark mode.
+
+The colourblind constraint is the one that shapes everything: at a fixed
+lightness a deuteranope sees red and green as the same colour, so lightness
+has to vary across the palette as well as hue. That is also why the
+lightness bands are narrow - they are the widest range that still clears AA.
+
+Components receive a single `actorColors` prop, `{ [actor]: { light, dark } }`
+or `null` when the feature is off, drilled the same way as `hideToCheck`.
+Each element carries both variants as custom properties and `style.css`
+picks one per `prefers-color-scheme`, so nothing has to read the theme from
+JavaScript.
+
 ### State Management
 
 - **No Vuex/Pinia**: State managed via props and reactive objects
@@ -199,6 +237,10 @@ None are urgent; each needs a decision rather than just a patch.
 * **`playTitle`, `author` and `description` are dead fields.** The parser
   emits them on every script and never fills them in. Either populate them
   from the markdown front matter or drop them from the format.
+* **Two actor display-name rules.** `FilterSheet.vue` and
+  `ActiveFilters.vue` each independently map a missing actor to
+  "Stage Directions". Colour coding hashes the raw name instead, so the
+  three surfaces agree, but the duplicated label logic remains.
 * **Scene numbers are global, not per act.** The parser counts scenes
   across the whole play, so the second act does not restart at 1. Config
   stored in localStorage keys off these numbers, so renumbering would

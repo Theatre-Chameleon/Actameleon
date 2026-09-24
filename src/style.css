@@ -212,6 +212,14 @@ button:focus-visible {
   @apply border border-blue-500;
 }
 
+/* Per-actor colour. The element carries both variants and CSS picks one, so
+   nothing has to watch the colour scheme from JavaScript. A direct rule also
+   beats the colour .line-clue passes down by inheritance, which is what keeps
+   the speaker identifiable on cue lines. */
+.actor-color {
+  color: var(--actor-color-light);
+}
+
 
 @media (prefers-color-scheme: light) {
   :root {
@@ -244,6 +252,10 @@ button:focus-visible {
 
   .line-clue {
     color: #a6aafb;
+  }
+
+  .actor-color {
+    color: var(--actor-color-dark);
   }
 
   .scene > :nth-child(even) {

@@ -104,7 +104,9 @@ const resetSelection = () => {
           @change="toggleItem(item)"
           class="item-checkbox"
         />
-        <span class="item-label">{{ item.label }}</span>
+        <span class="item-label">
+          <slot name="label" :item="item">{{ item.label }}</slot>
+        </span>
         <span v-if="showCounts && item.count !== undefined" class="item-count">
           {{ item.count }}
         </span>
