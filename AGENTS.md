@@ -160,13 +160,25 @@ Off by default, toggled by `config.colorActors`. When on, every character's
 name is drawn in its own colour in the script body, the actor filter list
 and the active filter pills.
 
-Colours are derived from the actor name, so no script data changes. Within
-a script every actor gets a *different* colour, which the name alone cannot
-guarantee, so `src/services/actorColor.js` assigns them per script from the
-cast already present in the parsed JSON. Each actor's preference order over
-the 48 palette slots depends only on its own name, so adding a role keeps
-about 99% of the existing colours; only an actor whose exact slot the
-newcomer wants is displaced.
+Colours come from cast rank, not from the name. Roles are ordered by how
+many lines they speak and rank picks the palette entry, so the characters
+on stage most often get the most clearly different colours and
+near-duplicates only ever reach walk-on parts. The ranking tiebreak is the
+name compared by code unit, not `localeCompare`, which would make colours
+depend on the device; ties are common, and in the largest script most of
+the cast shares a line count with somebody. `FilterSheet` must sort the
+actor list the same way or the swatches stop matching the colours.
+
+An earlier version hashed the name so colours survived a cast change. It
+scattered a small cast across the whole palette, which let a twelve-role
+play draw two neighbouring desaturated teals for its two leads. Rank trades
+that stability away on purpose: colours may shuffle when a script is
+edited, and anything the user has pinned survives because overrides are
+stored against the name.
+
+Users can override a colour per role from the swatch in the actor filter
+list. Overrides live in `config.actorColorOverrides` as `name -> palette
+index`. Two roles are allowed to share a colour this way.
 
 The palette is generated, not hand-picked:
 
@@ -175,22 +187,25 @@ node scripts/gen-actor-palette.mjs        # print the table
 ```
 
 The output must match the `PALETTE` constant in `actorColor.js`. Regenerate
-and paste if the generator changes. It solves for four things at once: WCAG
-AA on every background the app uses in both themes, distinguishability under
-red-green colour vision deficiency, a usable palette at every prefix length
-so growing the cast appends rather than reshuffles, and a stable hue between
-light and dark mode.
+and paste if the generator changes. It solves four things at once: WCAG AA
+on every background the app uses in both themes, colours that read as
+different colours, separability under red-green colour vision deficiency,
+and a sequence whose every prefix is the best palette of that size, which
+is what makes rank-based assignment work.
 
-The colourblind constraint is the one that shapes everything: at a fixed
-lightness a deuteranope sees red and green as the same colour, so lightness
-has to vary across the palette as well as hue. That is also why the
-lightness bands are narrow - they are the widest range that still clears AA.
+Two details in the generator are worth keeping. It maximises *chromatic*
+distance, measured in the a-b plane, rather than total OKLab distance: a
+pair can otherwise "pass" on a lightness difference alone, which is exactly
+the bug the hashed version shipped with. And it solves slightly above the
+real thresholds, because the emitted values are rounded to three decimals
+and that is enough to drop a colour below AA.
 
-Components receive a single `actorColors` prop, `{ [actor]: { light, dark } }`
-or `null` when the feature is off, drilled the same way as `hideToCheck`.
-Each element carries both variants as custom properties and `style.css`
-picks one per `prefers-color-scheme`, so nothing has to read the theme from
-JavaScript.
+Components receive a single `actorColors` prop, `{ [actor]: { light, dark,
+index } }` or `null` when the feature is off, drilled the same way as
+`hideToCheck`. Each element carries both variants as custom properties and
+`style.css` picks one per `prefers-color-scheme`, so nothing has to read
+the theme from JavaScript.
+
 
 ### State Management
 

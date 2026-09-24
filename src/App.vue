@@ -19,18 +19,29 @@ const safeJSONparse = (str) => {
 
 const selectedScript = ref(safeJSONparse(localStorage.getItem('script')) || 'fools');
 
-const config = reactive(safeJSONparse(localStorage.getItem(`config.${selectedScript.value}`)) 
-                  || {
-                    selectedActors: [],
-                    selectedActs: [],
-                    selectedScenes: [],
-                    showLinesPrior: false,
-                    hideText: false,
-                    highlightOnly: false,
-                    skipMyLines: false,
-                    skipSpeed: 1,
-                    colorActors: false
-                  });
+// One definition, used both for a fresh config and for filling gaps in a
+// stored one. Config is merged rather than replaced when switching scripts, so
+// without this a key absent from an older saved config would silently keep the
+// previous script's value.
+const defaultConfig = () => ({
+  selectedActors: [],
+  selectedActs: [],
+  selectedScenes: [],
+  showLinesPrior: false,
+  hideText: false,
+  highlightOnly: false,
+  skipMyLines: false,
+  skipSpeed: 1,
+  colorActors: false,
+  actorColorOverrides: {}
+});
+
+const configFor = (scriptName) => ({
+  ...defaultConfig(),
+  ...(safeJSONparse(localStorage.getItem(`config.${scriptName}`)) || {})
+});
+
+const config = reactive(configFor(selectedScript.value));
 
 // Modal states
 const showScriptSelector = ref(false);
@@ -106,19 +117,7 @@ const loadSelectedScript = async () => {
     selectedScript.value = scriptRef.name;
   }
   await loadScript(scriptRef);
-  const newConfig = safeJSONparse(localStorage.getItem(`config.${selectedScript.value}`)) 
-                          || {
-                            selectedActors: [],
-                            selectedActs: [],
-                            selectedScenes: [],
-                            showLinesPrior: false,
-                            hideText: false,
-                            highlightOnly: false,
-                            skipMyLines: false,
-                            skipSpeed: 1,
-                            colorActors: false
-                          };
-  Object.assign(config, newConfig);
+  Object.assign(config, configFor(selectedScript.value));
 }
 
 
@@ -147,7 +146,7 @@ watch(config, (newVal) => {
 });
 
 const actorColors = computed(() =>
-  config.colorActors ? actorColorsForScript(script) : null
+  config.colorActors ? actorColorsForScript(script, config.actorColorOverrides || {}) : null
 );
 
 const scrollToTop = () => {

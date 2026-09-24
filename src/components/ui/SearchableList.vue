@@ -93,24 +93,24 @@ const resetSelection = () => {
       <div v-if="filteredItems.length === 0" class="empty-state">
         No results found
       </div>
-      <label 
-        v-for="item in filteredItems" 
-        :key="item.id"
-        class="list-item"
-      >
-        <input 
-          type="checkbox"
-          :checked="item.checked"
-          @change="toggleItem(item)"
-          class="item-checkbox"
-        />
-        <span class="item-label">
-          <slot name="label" :item="item">{{ item.label }}</slot>
-        </span>
-        <span v-if="showCounts && item.count !== undefined" class="item-count">
-          {{ item.count }}
-        </span>
-      </label>
+      <template v-for="item in filteredItems" :key="item.id">
+        <label class="list-item">
+          <input 
+            type="checkbox"
+            :checked="item.checked"
+            @change="toggleItem(item)"
+            class="item-checkbox"
+          />
+          <span class="item-label">
+            <slot name="label" :item="item">{{ item.label }}</slot>
+          </span>
+          <slot name="trailing" :item="item" />
+          <span v-if="showCounts && item.count !== undefined" class="item-count">
+            {{ item.count }}
+          </span>
+        </label>
+        <slot name="after" :item="item" />
+      </template>
     </div>
   </div>
 </template>

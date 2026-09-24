@@ -1,5 +1,6 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
+import { PALETTE_SIZE, paletteColor } from '../services/actorColor.js';
 import BottomSheet from './ui/BottomSheet.vue';
 import SearchableList from './ui/SearchableList.vue';
 import CollapsibleSection from './ui/CollapsibleSection.vue';
@@ -25,6 +26,23 @@ const props = defineProps({
 
 const colorFor = (actorId) => props.actorColors?.[actorId] || null;
 
+const pickerFor = ref(null);
+const togglePicker = (actorId) => {
+  pickerFor.value = pickerFor.value === actorId ? null : actorId;
+};
+
+const overrides = () => props.config.actorColorOverrides || (props.config.actorColorOverrides = {});
+
+const setColor = (actorId, index) => {
+  overrides()[actorId] = index;
+  pickerFor.value = null;
+};
+
+const clearColor = (actorId) => {
+  delete overrides()[actorId];
+  pickerFor.value = null;
+};
+
 defineEmits(['close']);
 
 // Build actors list with line counts
@@ -41,8 +59,10 @@ const actorItems = computed(() => {
     });
   });
   
+  // Same order as the colour ranking in actorColor.js, including the name
+  // tiebreak, so a row's swatch matches the colour that rank hands out.
   return Object.entries(actorCounts)
-    .sort((a, b) => b[1] - a[1])
+    .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
     .map(([actor, count]) => ({
       id: actor,
       label: (!actor || actor === 'undefined') ? 'Stage Directions' : actor,
@@ -162,6 +182,33 @@ const speedIndex = computed(() => {
               '--actor-color-dark': colorFor(item.id).dark
             }"
           >{{ item.label }}</span>
+        </template>
+
+        <template #trailing="{ item }">
+          <button
+            v-if="colorFor(item.id)"
+            class="swatch"
+            :class="{ 'swatch-open': pickerFor === item.id }"
+            :style="{ '--swatch-light': colorFor(item.id).light, '--swatch-dark': colorFor(item.id).dark }"
+            :aria-label="`Change colour for ${item.label}`"
+            :aria-expanded="pickerFor === item.id"
+            @click.stop.prevent="togglePicker(item.id)"
+          />
+        </template>
+
+        <template #after="{ item }">
+          <div v-if="pickerFor === item.id" class="picker">
+            <button
+              v-for="i in PALETTE_SIZE"
+              :key="i"
+              class="picker-swatch"
+              :class="{ 'picker-swatch-current': colorFor(item.id)?.index === i - 1 }"
+              :style="{ '--swatch-light': paletteColor(i - 1).light, '--swatch-dark': paletteColor(i - 1).dark }"
+              :aria-label="`Colour ${i}`"
+              @click.stop.prevent="setColor(item.id, i - 1)"
+            />
+            <button class="picker-reset" @click.stop.prevent="clearColor(item.id)">Default</button>
+          </div>
         </template>
       </SearchableList>
       
@@ -301,6 +348,40 @@ const speedIndex = computed(() => {
   @apply pb-4;
 }
 
+/* The row is a <label>, so the swatch must swallow its own click or it would
+   toggle the actor's checkbox as well. */
+.swatch {
+  @apply w-5 h-5 rounded shrink-0 p-0;
+  @apply border border-black/20 dark:border-white/25;
+  background: var(--swatch-light);
+}
+
+.swatch-open {
+  @apply ring-2 ring-blue-500;
+}
+
+/* Expanded inline rather than floated: the sheet is a max-height scroller and
+   an absolutely positioned popover would be clipped by it. */
+.picker {
+  @apply flex flex-wrap gap-2 px-4 py-3 items-center;
+  @apply bg-gray-50 dark:bg-gray-800/60 border-b dark:border-gray-800;
+}
+
+.picker-swatch {
+  @apply w-7 h-7 rounded shrink-0 p-0;
+  @apply border border-black/20 dark:border-white/25;
+  background: var(--swatch-light);
+}
+
+.picker-swatch-current {
+  @apply ring-2 ring-blue-500;
+}
+
+.picker-reset {
+  @apply text-sm text-blue-500 hover:text-blue-700;
+  @apply p-0 bg-transparent border-none ml-1;
+}
+
 .section-divider {
   @apply h-2 bg-gray-100 dark:bg-gray-800;
 }
@@ -400,5 +481,13 @@ const speedIndex = computed(() => {
 
 .safe-area-spacer {
   @apply h-8;
+}
+
+/* Swatches carry both variants; pick one per theme the same way actor names do. */
+@media (prefers-color-scheme: dark) {
+  .swatch,
+  .picker-swatch {
+    background: var(--swatch-dark);
+  }
 }
 </style>
