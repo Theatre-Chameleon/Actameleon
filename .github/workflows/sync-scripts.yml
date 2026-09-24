@@ -83,6 +83,7 @@ jobs:
             >/dev/null 2>&1 || true
 
           count=$(jq 'length' "$RUNNER_TEMP/changed.json")
+          failed=()
 
           for i in $(seq 0 $((count - 1))); do
             name=$(jq -r ".[$i].name"      "$RUNNER_TEMP/changed.json")
@@ -126,19 +127,36 @@ jobs:
               echo "_Opened by [this workflow run]($RUN_URL). Merge manually once the changes look right._"
             } > "$RUNNER_TEMP/body.md"
 
+            # The branch is already pushed, so a failure here loses nothing but
+            # the pull request itself. Record it and carry on: letting one
+            # script abort the step used to leave the rest unsynced entirely.
             if gh pr view "$branch" --json number --jq .number >/dev/null 2>&1; then
-              gh pr edit "$branch" --body-file "$RUNNER_TEMP/body.md"
-              echo "Updated $(gh pr view "$branch" --json url --jq .url)"
-            else
-              gh pr create \
+              if gh pr edit "$branch" --body-file "$RUNNER_TEMP/body.md"; then
+                echo "Updated $(gh pr view "$branch" --json url --jq .url)"
+              else
+                failed+=("$name")
+              fi
+            elif ! gh pr create \
                 --base "$BASE" \
                 --head "$branch" \
                 --title "Sync \"$title\" from the source Google Doc" \
                 --body-file "$RUNNER_TEMP/body.md" \
-                --label script-sync
+                --label script-sync; then
+              failed+=("$name")
+              echo "Branch is pushed; open it by hand at:"
+              echo "  $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/$BASE...$branch?expand=1"
             fi
 
             echo '::endgroup::'
           done
 
           git checkout "$BASE"
+
+          if [ ${#failed[@]} -gt 0 ]; then
+            echo "::error::Pushed the branches but could not open pull requests for: ${failed[*]}"
+            echo "If the log above says GitHub Actions is not permitted to create pull"
+            echo "requests, tick Settings > Actions > General > Workflow permissions >"
+            echo "'Allow GitHub Actions to create and approve pull requests'. An"
+            echo "organisation policy can override the repository setting."
+            exit 1
+          fi
